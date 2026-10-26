@@ -47,7 +47,7 @@ export interface paths {
         };
         /**
          * Live
-         * @description Liveness only; database readiness is added with the database stage.
+         * @description Liveness only; does not check database readiness.
          */
         get: operations["live_health_live_get"];
         put?: never;

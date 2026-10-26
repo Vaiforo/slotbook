@@ -338,7 +338,7 @@
     },
     "/health/live": {
       "get": {
-        "description": "Liveness only; database readiness is added with the database stage.",
+        "description": "Liveness only; does not check database readiness.",
         "operationId": "live_health_live_get",
         "responses": {
           "200": {
