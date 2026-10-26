@@ -1,14 +1,10 @@
-export type Health = { status: 'ok'; service: string }
+import { request } from './api'
+import type { components } from '../generated/api-types'
+
+export type Health = components['schemas']['LiveResponse']
 
 export async function getHealth(signal: AbortSignal): Promise<Health> {
-  const response = await fetch('/health/live', {
-    signal,
-    cache: 'no-store',
-    headers: { Accept: 'application/json' },
-  })
-  if (!response.ok) throw new Error(`API вернул HTTP ${response.status}.`)
-
-  const data: unknown = await response.json()
+  const data = await request<unknown>('/health/live', { basePath: '', signal })
   if (
     typeof data !== 'object' || data === null ||
     !('status' in data) || data.status !== 'ok' ||
