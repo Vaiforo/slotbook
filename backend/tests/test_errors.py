@@ -57,8 +57,12 @@ def test_openapi_export_without_database(tmp_path, monkeypatch):
         "/health/live",
         "/api/v1/specialists/{slug}",
         "/api/v1/specialists/{slug}/slots",
+        "/api/v1/bookings",
+        "/api/v1/bookings/{booking_id}",
+        "/api/v1/bookings/{booking_id}/cancel",
     }
-    assert "Booking" not in schema["components"]["schemas"]
+    assert "manage_token_hash" not in output.read_text()
+    assert "BookingCreated" in schema["components"]["schemas"]
     assert schema["paths"]["/api/v1/specialists/{slug}/slots"]["get"]["responses"]["422"][
         "content"
     ]["application/json"]["schema"]["$ref"].endswith("/ErrorResponse")

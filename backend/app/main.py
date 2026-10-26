@@ -7,9 +7,11 @@ from fastapi import FastAPI, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import Settings
 from app.core.errors import ErrorResponse, install_error_handling
 from app.core.logging import configure_logging
+from app.modules.bookings.router import router as bookings_router
 from app.modules.specialists.router import router
 
 logger = logging.getLogger(__name__)
@@ -41,8 +43,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         responses={code: {"model": ErrorResponse} for code in (404, 405, 422, 500)},
     )
+    app.add_middleware(BodyLimitMiddleware)
     install_error_handling(app)
     app.include_router(router)
+    app.include_router(bookings_router)
 
     @app.get("/health/live", response_model=LiveResponse, tags=["health"])
     async def live(response: Response) -> LiveResponse:
