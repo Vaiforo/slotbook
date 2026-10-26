@@ -99,3 +99,43 @@ it('query retries are bounded and never repeat client errors', async () => {
   expect(retry(1, new ApiError(500, 'internal_error', 'Test'))).toBe(false)
   expect(retry(0, new TypeError('Network failure'))).toBe(true)
 })
+
+it('does not retry booking creation after a conflict', async () => {
+  const { createBooking } = await import('./api')
+  const fetch = vi.fn().mockResolvedValue(
+    Response.json(
+      {
+        error: {
+          code: 'slot_unavailable',
+          message: 'Unavailable',
+          request_id: 'test-id',
+        },
+      },
+      { status: 409 },
+    ),
+  )
+  vi.stubGlobal('fetch', fetch)
+  await expect(
+    createBooking({ slot_id: 'slot-id', client_name: 'Test', client_email: 'test@example.com' }),
+  ).rejects.toMatchObject({ status: 409, code: 'slot_unavailable' })
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(fetch.mock.calls[0][0]).toBe('/api/v1/bookings')
+  expect(fetch.mock.calls[0][1].method).toBe('POST')
+})
+
+it('passes manage tokens only in Authorization for read and cancellation', async () => {
+  const { getBooking, cancelBooking } = await import('./api')
+  const fetch = vi
+    .fn()
+    .mockImplementation(() => Promise.resolve(Response.json({ status: 'cancelled' })))
+  vi.stubGlobal('fetch', fetch)
+  await getBooking('booking-id', 'private-token')
+  await cancelBooking('booking-id', 'private-token')
+  for (const [url, init] of fetch.mock.calls) {
+    expect(url).not.toContain('private-token')
+    expect(init.headers.get('Authorization')).toBe('Bearer private-token')
+    expect(init.body).toBeUndefined()
+  }
+  expect(fetch.mock.calls[1][0]).toBe('/api/v1/bookings/booking-id/cancel')
+  expect(fetch.mock.calls[1][1].method).toBe('POST')
+})

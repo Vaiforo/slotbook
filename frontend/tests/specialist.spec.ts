@@ -39,7 +39,7 @@ test('real profile and slots, date changes, selection and responsive layout', as
   await expect(page.getByText('Выберите дату и время', { exact: true })).toBeVisible()
   await expect(page.getByText('Свободного времени нет', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Следующий день', exact: false })).toBeVisible()
-  const missing = await request.get('/api/v1/bookings')
+  const missing = await request.get('/api/v1/not-implemented')
   expect(missing.status()).toBe(404)
   expect(errors).toEqual([])
 })

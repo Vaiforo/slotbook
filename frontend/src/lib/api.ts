@@ -20,10 +20,16 @@ export class ApiError extends Error {
 function isErrorBody(body: unknown): body is ErrorBody {
   if (typeof body !== 'object' || body === null || !('error' in body)) return false
   const detail = body.error
-  return typeof detail === 'object' && detail !== null &&
-    'code' in detail && typeof detail.code === 'string' &&
-    'message' in detail && typeof detail.message === 'string' &&
-    'request_id' in detail && typeof detail.request_id === 'string'
+  return (
+    typeof detail === 'object' &&
+    detail !== null &&
+    'code' in detail &&
+    typeof detail.code === 'string' &&
+    'message' in detail &&
+    typeof detail.message === 'string' &&
+    'request_id' in detail &&
+    typeof detail.request_id === 'string'
+  )
 }
 
 type RequestOptions = Omit<RequestInit, 'credentials'> & {
@@ -40,7 +46,10 @@ export async function request<T>(path: `/${string}`, options: RequestOptions = {
     headers.set('X-CSRF-Token', csrfToken)
   }
   const response = await fetch(`${basePath}${path}`, {
-    ...init, headers, credentials: 'same-origin', cache: 'no-store',
+    ...init,
+    headers,
+    credentials: 'same-origin',
+    cache: 'no-store',
   })
   const requestId = response.headers.get('X-Request-ID') ?? undefined
   if (response.status === 204) return undefined as T
@@ -48,11 +57,21 @@ export async function request<T>(path: `/${string}`, options: RequestOptions = {
   try {
     body = await response.json()
   } catch {
-    throw new ApiError(response.status, 'invalid_response', 'Сервер вернул некорректный ответ.', requestId)
+    throw new ApiError(
+      response.status,
+      'invalid_response',
+      'Сервер вернул некорректный ответ.',
+      requestId,
+    )
   }
   if (!response.ok) {
     if (isErrorBody(body)) {
-      throw new ApiError(response.status, body.error.code, body.error.message, body.error.request_id)
+      throw new ApiError(
+        response.status,
+        body.error.code,
+        body.error.message,
+        body.error.request_id,
+      )
     }
     throw new ApiError(response.status, 'http_error', `Ошибка HTTP ${response.status}.`, requestId)
   }
@@ -63,10 +82,52 @@ export function getSpecialist(slug: string, signal?: AbortSignal): Promise<Publi
   return request(`/specialists/${encodeURIComponent(slug)}`, { signal })
 }
 
-export function getAvailableSlots(slug: string, filters: SlotFilters, signal?: AbortSignal): Promise<SlotPage> {
+export function getAvailableSlots(
+  slug: string,
+  filters: SlotFilters,
+  signal?: AbortSignal,
+): Promise<SlotPage> {
   const query = new URLSearchParams({
-    from: filters.from, to: filters.to,
-    limit: String(filters.limit ?? 100), offset: String(filters.offset ?? 0),
+    from: filters.from,
+    to: filters.to,
+    limit: String(filters.limit ?? 100),
+    offset: String(filters.offset ?? 0),
   })
   return request(`/specialists/${encodeURIComponent(slug)}/slots?${query}`, { signal })
+}
+
+export type BookingCreate = components['schemas']['BookingCreate']
+export type BookingCreated = components['schemas']['BookingCreated']
+export type BookingDetails = components['schemas']['BookingDetails']
+
+export function createBooking(data: BookingCreate, signal?: AbortSignal): Promise<BookingCreated> {
+  return request('/bookings', {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+}
+
+export function getBooking(
+  id: string,
+  manageToken: string,
+  signal?: AbortSignal,
+): Promise<BookingDetails> {
+  return request(`/bookings/${encodeURIComponent(id)}`, {
+    signal,
+    headers: { Authorization: `Bearer ${manageToken}` },
+  })
+}
+
+export function cancelBooking(
+  id: string,
+  manageToken: string,
+  signal?: AbortSignal,
+): Promise<BookingDetails> {
+  return request(`/bookings/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    signal,
+    headers: { Authorization: `Bearer ${manageToken}` },
+  })
 }

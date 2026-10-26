@@ -20,6 +20,7 @@
 Лог HTTP содержит request_id, шаблон route, method, status, duration_ms;
 неизвестный маршрут записывается как `<unmatched>`, без сырого URL/query string.
 Коды сейчас: 404 `not_found`, 405 `method_not_allowed` (с Allow),
+409 `slot_unavailable` / `booking_started`, 413 `payload_too_large`,
 422 `validation_error`, 500 `internal_error` с безопасным общим сообщением.
 
 ### Публичный профиль
@@ -80,9 +81,72 @@ Timestamp всегда содержит timezone; конкретный offset в
 доступность на момент чтения: последующее бронирование обязано проверить её заново.
 В ответе нет контактов, booking ids, manage tokens и сведений о чужих записях.
 
+### Создание бронирования
+
+```http
+POST /api/v1/bookings
+Content-Type: application/json
+
+{"slot_id":"<UUID свободного слота>","client_name":"Анна Тестовая","client_email":"client@example.com"}
+```
+
+201 возвращается только после commit транзакции. Ответ содержит `id`, `slot_id`,
+`client_name`, `client_email`, `status: "confirmed"`, `starts_at`, `ends_at`,
+`created_at`, `cancelled_at: null` и `manage_token`.
+
+`slot_id` — UUID, имя после trim — 1–200 символов без управляющих символов,
+email — синтаксически валидный адрес длиной не более 320 символов. Доставка
+письма не проверяется и не выполняется. Лишние JSON-поля запрещены.
+Тела POST/PUT/PATCH ограничены **16 KiB фактических байтов**, включая chunked
+запросы; превышение возвращает 413 `payload_too_large` до разбора JSON/транзакции.
+
+Слот отсутствует — 404 `not_found`; закрыт, прошёл или уже занят — 409
+`slot_unavailable`. Валидация — 422 `validation_error`. При конфликте не создаётся
+дополнительная запись. Нет автоматического retry POST и гарантии Idempotency-Key:
+если соединение оборвалось после commit, повтор может вернуть 409, а исходный
+manage token нельзя восстановить повторным запросом. Не повторяйте POST вслепую.
+
+`manage_token` — 32 случайных байта (256 бит), URL-safe строка длиной 43 символа.
+Он возвращается один раз при создании; PostgreSQL хранит только SHA-256-хеш.
+Секрет даёт доступ только к одной записи, его нельзя публиковать или хранить
+в URL query, localStorage либо логах. Форма записи и страница `/manage/:id` пока
+не реализованы; HTTP-клиент уже предоставляет типизированные методы.
+
+### Чтение и отмена по секрету
+
+```http
+GET /api/v1/bookings/<booking-id>
+Authorization: Bearer <manage-token>
+```
+
+200 содержит те же поля записи, кроме `manage_token`. Хеш никогда не возвращается.
+GET ничего не изменяет. UUID записи без секрета не даёт доступ. Отсутствующая запись,
+неверный/отсутствующий token, token другой записи, cookie или token в query вместо
+Authorization возвращают одинаковый 404 `not_found`. Cookie-авторизация владельца
+пока не реализована и не используется как обход проверки секрета.
+
+```http
+POST /api/v1/bookings/<booking-id>/cancel
+Authorization: Bearer <manage-token>
+```
+
+200 возвращает запись со `status: "cancelled"` и `cancelled_at`. Отмена возможна
+до начала встречи; после начала — 409 `booking_started`. Повторная отмена уже
+отменённой записи возвращает тот же результат даже после её начала. Она не отменяет
+новую запись на этот слот и не меняет состояние слота: закрытый слот остаётся закрытым.
+Все ответы имеют `Cache-Control: no-store` и `Referrer-Policy: no-referrer`.
+
+Создание и отмена используют один порядок блокировок: **slot → booking**.
+Слот блокируется `SELECT … FOR UPDATE`, текущее время PostgreSQL проверяется
+через `clock_timestamp()` после получения блокировки; `now()` здесь не подходит,
+потому что фиксируется в начале транзакции. Проверка и изменения выполняются
+в одной транзакции. Частичный UNIQUE дополнительно запрещает две confirmed-записи.
+Только нарушение `one_confirmed_booking_per_slot` переводится в 409 после rollback;
+другие ошибки целостности не маскируются под занятое время.
+
 ### Frontend-потребители
 
-`getSpecialist` и `getAvailableSlots` в `src/lib/api.ts` используют сгенерированные
+`getSpecialist`, `getAvailableSlots`, `createBooking`, `getBooking` и `cancelBooking` в `src/lib/api.ts` используют сгенерированные
 типы. Общий request добавляет Accept, same-origin credentials, передаёт AbortSignal,
 не повторяет запросы автоматически. `ApiError` содержит status, code, requestId.
 HTML/не-JSON от proxy преобразуется в безопасный `invalid_response`.
@@ -155,39 +219,7 @@ Content-Type: application/json
 200: обновлённый слот. Изменение времени не поддерживается. Чужой слот — 404;
 закрытие слота с активной записью — 409. Повторное открытие — `state: "open"`.
 
-### Создание и управление записью
-
-```http
-POST /api/v1/bookings
-Content-Type: application/json
-
-{"slot_id":"<slot-id>","client_name":"Демо-клиент","client_email":"client@example.invalid"}
-```
-
-201: `id`, `slot_id`, `status: "confirmed"`, `starts_at`, `ends_at`,
-`manage_token` (выдаётся при создании один раз). Клиент строит ссылку
-`/manage/<id>#token=<manage_token>`; GET не совершает отмену.
-Слот недоступен — 409 `slot_unavailable`; неверные поля — 422.
-Повтор POST после сетевого обрыва не гарантирует повтор исходного результата.
-
-```http
-GET /api/v1/bookings/<booking-id>
-Authorization: Bearer <manage-token>
-```
-
-200: только эта запись (`id`, `slot_id`, `status`, время, собственные контакты).
-Альтернативно владелец использует cookie-сессию с обязательной проверкой ownership.
-Неверный token/чужая запись — 404. UUID сам по себе не даёт доступ.
-
-```http
-POST /api/v1/bookings/<booking-id>/cancel
-Authorization: Bearer <manage-token>
-```
-
-200: запись со `status: "cancelled"` и временем отмены. Альтернатива владельца —
-cookie + CSRF + Origin. Повторная отмена старой записи не меняет новую запись
-на том же слоте. Отмена после начала запрещена (409). Секрет — только в памяти
-клиента и Authorization, не в URL query или логах.
+### Список записей владельца
 
 ```http
 GET /api/v1/me/bookings?from=2030-01-01T00:00:00Z&to=2030-01-02T00:00:00Z&status=confirmed&limit=100&offset=0

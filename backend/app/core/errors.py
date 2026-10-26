@@ -13,6 +13,14 @@ from starlette.responses import JSONResponse
 logger = logging.getLogger(__name__)
 
 
+class DomainError(Exception):
+    def __init__(self, status: int, code: str, message: str):
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.message = message
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str
@@ -37,6 +45,10 @@ def error_response(request: Request, status: int, code: str, message: str) -> JS
 
 
 def install_error_handling(app: FastAPI) -> None:
+    @app.exception_handler(DomainError)
+    async def domain_error(request: Request, exc: DomainError) -> JSONResponse:
+        return error_response(request, exc.status, exc.code, exc.message)
+
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
         codes = {404: "not_found", 405: "method_not_allowed", 401: "unauthorized", 403: "forbidden"}
@@ -68,6 +80,7 @@ def install_error_handling(app: FastAPI) -> None:
             response = error_response(request, 500, "internal_error", "Внутренняя ошибка сервера.")
         response.headers["X-Request-ID"] = request.state.request_id
         response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
         route = request.scope.get("route")
         logger.log(
             logging.ERROR if response.status_code >= 500 else logging.INFO,
