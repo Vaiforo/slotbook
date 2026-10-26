@@ -26,3 +26,23 @@ check:
 # Starts its own real backend and Vite servers; ports 8000/5173 must be free.
 smoke:
 	cd frontend && npm run test:smoke
+
+.PHONY: db-up db-stop migrate seed db-test
+
+db-up:
+	docker compose up -d --wait db
+
+db-stop:
+	docker compose stop db
+
+migrate:
+	cd backend && uv run --frozen alembic upgrade head
+
+seed:
+	cd backend && uv run --frozen python -m scripts.seed_demo
+
+# Creates and drops ONLY a new random slotbook_test_* database.
+# Override for a dedicated PostgreSQL 18 server with CREATEDB permission.
+SLOTBOOK_TEST_ADMIN_URL ?= postgresql+psycopg://slotbook:slotbook_local_only@127.0.0.1:5432/slotbook
+db-test:
+	cd backend && SLOTBOOK_TEST_ADMIN_URL="$(SLOTBOOK_TEST_ADMIN_URL)" uv run --frozen pytest tests/integration
