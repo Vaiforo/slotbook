@@ -11,7 +11,10 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:smoke": "playwright test"
+    "test:smoke": "playwright test",
+    "test:unit": "vitest run src/lib",
+    "api:generate": "openapi-typescript ../docs/openapi.json -o src/generated/api-types.ts",
+    "api:check": "node scripts/check-api-types.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -28,8 +31,10 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^16.5.0",
+    "openapi-typescript": "^7.13.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.72.0",
-    "vite": "^7.0.0"
+    "vite": "^7.0.0",
+    "vitest": "^4.1.12"
   }
 }

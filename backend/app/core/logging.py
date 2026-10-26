@@ -6,12 +6,15 @@ from logging.config import dictConfig
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        payload = {
+        payload: dict[str, object] = {
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
         }
+        for field in ("request_id", "route", "method", "status", "duration_ms"):
+            if hasattr(record, field):
+                payload[field] = getattr(record, field)
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
@@ -34,7 +37,7 @@ def configure_logging(level: str) -> None:
             "loggers": {
                 "uvicorn": {"handlers": [], "propagate": True, "level": level},
                 "uvicorn.error": {"handlers": [], "propagate": True, "level": level},
-                # Raw access logs include query strings; request logging comes in stage 03.
+                # Raw access logs include query strings; our middleware logs route templates.
                 "uvicorn.access": {"handlers": [], "propagate": False},
             },
         }

@@ -14,12 +14,13 @@ backend:
 frontend:
 	cd frontend && npm run dev
 
-check:
+check: api-check
 	cd backend && uv run --frozen ruff check .
 	cd backend && uv run --frozen ruff format --check .
 	cd backend && uv run --frozen mypy app
 	cd backend && uv run --frozen pytest
 	cd frontend && npm run lint
+	cd frontend && npm run test:unit
 	cd frontend && npm run typecheck
 	cd frontend && npm run build
 
@@ -46,3 +47,12 @@ seed:
 SLOTBOOK_TEST_ADMIN_URL ?= postgresql+psycopg://slotbook:slotbook_local_only@127.0.0.1:5432/slotbook
 db-test:
 	cd backend && SLOTBOOK_TEST_ADMIN_URL="$(SLOTBOOK_TEST_ADMIN_URL)" uv run --frozen pytest tests/integration
+
+.PHONY: api-generate api-check
+api-generate:
+	cd backend && uv run --frozen python -m scripts.export_openapi
+	cd frontend && npm run api:generate
+
+api-check:
+	cd backend && uv run --frozen python -m scripts.export_openapi --check
+	cd frontend && npm run api:check
