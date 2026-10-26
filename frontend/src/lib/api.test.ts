@@ -19,18 +19,36 @@ describe('HTTP client', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
   it('preserves typed errors and never retries', async () => {
-    const fetch = vi.fn().mockResolvedValue(Response.json({ error: {
-      code: 'not_found', message: 'Not Found', request_id: 'id-123',
-    } }, { status: 404 }))
+    const fetch = vi.fn().mockResolvedValue(
+      Response.json(
+        {
+          error: {
+            code: 'not_found',
+            message: 'Not Found',
+            request_id: 'id-123',
+          },
+        },
+        { status: 404 },
+      ),
+    )
     vi.stubGlobal('fetch', fetch)
     await expect(getSpecialist('missing')).rejects.toMatchObject({
-      name: 'ApiError', status: 404, code: 'not_found', requestId: 'id-123',
+      name: 'ApiError',
+      status: 404,
+      code: 'not_found',
+      requestId: 'id-123',
     })
     expect(fetch).toHaveBeenCalledTimes(1)
   })
   it('handles non-JSON proxy errors without exposing the response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('PRIVATE PROXY DETAILS', { status: 502 })))
-    await expect(getSpecialist('demo')).rejects.toMatchObject({ code: 'invalid_response', status: 502 })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('PRIVATE PROXY DETAILS', { status: 502 })),
+    )
+    await expect(getSpecialist('demo')).rejects.toMatchObject({
+      code: 'invalid_response',
+      status: 502,
+    })
   })
   it('does not retry an aborted request', async () => {
     const abort = new DOMException('Aborted', 'AbortError')
@@ -40,21 +58,44 @@ describe('HTTP client', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
   it('supports 204 and adds CSRF only for mutations', async () => {
-    const fetch = vi.fn().mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })))
+    const fetch = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })))
     vi.stubGlobal('fetch', fetch)
-    await expect(request('/future', { method: 'POST', csrfToken: 'test-csrf' })).resolves.toBeUndefined()
+    await expect(
+      request('/future', { method: 'POST', csrfToken: 'test-csrf' }),
+    ).resolves.toBeUndefined()
     expect(fetch.mock.calls[0][1].headers.get('X-CSRF-Token')).toBe('test-csrf')
     await request('/future', { csrfToken: 'test-csrf' })
     expect(fetch.mock.calls[1][1].headers.has('X-CSRF-Token')).toBe(false)
   })
   it('rejects malformed JSON error shapes safely', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ detail: 'PRIVATE' }, { status: 500 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json({ detail: 'PRIVATE' }, { status: 500 })),
+    )
     await expect(getSpecialist('demo')).rejects.toBeInstanceOf(ApiError)
   })
 })
 
 it('keys distinguish filters and normalize default pagination', () => {
-  expect(queryKeys.slots('demo', filters)).toEqual(queryKeys.slots('demo', { ...filters, limit: 100, offset: 0 }))
-  expect(queryKeys.slots('demo', filters)).not.toEqual(queryKeys.slots('demo', { ...filters, offset: 1 }))
+  expect(queryKeys.slots('demo', filters)).toEqual(
+    queryKeys.slots('demo', { ...filters, limit: 100, offset: 0 }),
+  )
+  expect(queryKeys.slots('demo', filters)).not.toEqual(
+    queryKeys.slots('demo', { ...filters, offset: 1 }),
+  )
   expect(queryKeys.slots('demo', filters)).not.toEqual(queryKeys.slots('other', filters))
+})
+
+it('query retries are bounded and never repeat client errors', async () => {
+  const { queryClient } = await import('../app/query-client')
+  const retry = queryClient.getDefaultOptions().queries?.retry
+  if (typeof retry !== 'function') throw new Error('Expected an explicit retry policy')
+  for (const status of [401, 403, 404, 422]) {
+    expect(retry(0, new ApiError(status, 'client_error', 'Test'))).toBe(false)
+  }
+  expect(retry(0, new ApiError(500, 'internal_error', 'Test'))).toBe(true)
+  expect(retry(1, new ApiError(500, 'internal_error', 'Test'))).toBe(false)
+  expect(retry(0, new TypeError('Network failure'))).toBe(true)
 })

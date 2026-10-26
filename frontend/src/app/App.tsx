@@ -1,82 +1,67 @@
-import { useEffect, useState } from 'react'
-import { getHealth } from '../lib/health'
-import type { Health } from '../lib/health'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
+import { CalendarDays } from 'lucide-react'
+import { queryClient } from './query-client'
+import { lazy, Suspense } from 'react'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Button } from '@/components/ui/button'
 
-type Status =
-  | { kind: 'loading' }
-  | { kind: 'success'; health: Health }
-  | { kind: 'error'; message: string }
+const SpecialistPage = lazy(() =>
+  import('@/pages/specialist').then((module) => ({ default: module.SpecialistPage })),
+)
 
 export function App() {
-  const [attempt, setAttempt] = useState(0)
-  const [status, setStatus] = useState<Status>({ kind: 'loading' })
-
-  useEffect(() => {
-    const controller = new AbortController()
-    const timeout = window.setTimeout(() => controller.abort(), 5000)
-    let active = true
-
-    getHealth(controller.signal)
-      .then((health) => {
-        if (active) setStatus({ kind: 'success', health })
-      })
-      .catch((error: unknown) => {
-        if (active) {
-          setStatus({
-            kind: 'error',
-            message: controller.signal.aborted
-              ? 'Сервер не ответил за 5 секунд.'
-              : error instanceof Error ? error.message : 'Не удалось связаться с сервером.',
-          })
-        }
-      })
-      .finally(() => window.clearTimeout(timeout))
-
-    return () => {
-      active = false
-      window.clearTimeout(timeout)
-      controller.abort()
-    }
-  }, [attempt])
-
-  function refresh() {
-    setStatus({ kind: 'loading' })
-    setAttempt((value) => value + 1)
-  }
-
   return (
-    <main className="shell">
-      <header className="brand"><span className="brand-mark" aria-hidden="true">S</span>SlotBook</header>
-      <section className="intro" aria-labelledby="page-title">
-        <p className="eyebrow">Запись на консультации</p>
-        <h1 id="page-title">Всё начинается<br />со связи.</h1>
-        <p className="lead">SlotBook готовится помогать вам находить время для встреч.
-          Сейчас доступна проверка соединения с сервисом.</p>
-      </section>
-      <section className="status-card" aria-labelledby="status-title">
-        <div className="card-heading">
-          <h2 id="status-title">Состояние сервиса</h2>
-          <span className="badge">Этап 01</span>
-        </div>
-        <div role="status" aria-live="polite" aria-atomic="true">
-          <p className={`connection ${status.kind}`}>
-            <span className="dot" aria-hidden="true" />
-            {status.kind === 'loading' ? 'Проверяем соединение…'
-              : status.kind === 'success' ? 'API доступен' : 'API недоступен'}
-          </p>
-          <p className="detail">
-            {status.kind === 'success'
-              ? `Сервис ${status.health.service} ответил: ${status.health.status}.`
-              : status.kind === 'error'
-                ? `${status.message} Повторите проверку после восстановления соединения.`
-                : 'Ждём ответ сервера.'}
-          </p>
-        </div>
-        <button type="button" onClick={refresh} disabled={status.kind === 'loading'}>
-          {status.kind === 'loading' ? 'Проверяем…' : 'Проверить ещё раз'}
-        </button>
-      </section>
-      <footer>Расписание и бронирование появятся на следующих этапах.</footer>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <a className="skip-link" href="#main">
+          Перейти к содержимому
+        </a>
+        <header className="site-header">
+          <div className="site-width flex items-center justify-between gap-3">
+            <Link to="/s/demo" className="brand" aria-label="SlotBook — главная">
+              <span className="brand-mark">
+                <CalendarDays size={20} />
+              </span>
+              SlotBook
+            </Link>
+            <span className="header-caption">Время для встречи</span>
+          </div>
+        </header>
+        <main id="main" className="site-width main-content">
+          <Suspense
+            fallback={
+              <p role="status" className="text-muted-foreground">
+                Открываем расписание…
+              </p>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<Navigate to="/s/demo" replace />} />
+              <Route path="/s/:slug" element={<SpecialistPage />} />
+              <Route
+                path="*"
+                element={
+                  <EmptyState
+                    title="Страница не найдена"
+                    action={
+                      <Button asChild>
+                        <Link to="/s/demo">К расписанию</Link>
+                      </Button>
+                    }
+                  >
+                    Проверьте адрес или откройте расписание специалиста.
+                  </EmptyState>
+                }
+              />
+            </Routes>
+          </Suspense>
+        </main>
+        <footer className="site-width site-footer">
+          <span>SlotBook</span>
+          <span>Меньше переписки. Больше времени.</span>
+        </footer>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }

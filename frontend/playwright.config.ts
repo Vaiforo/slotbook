@@ -14,8 +14,9 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log',
+      command: 'uv run --frozen python -m scripts.serve_browser_test_api',
       cwd: '../backend',
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 10_000 },
       url: 'http://127.0.0.1:8000/health/live',
       reuseExistingServer: false,
     },

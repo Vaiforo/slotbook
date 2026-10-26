@@ -46,7 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health/live", response_model=LiveResponse, tags=["health"])
     async def live(response: Response) -> LiveResponse:
-        """Liveness only; database readiness is added with the database stage."""
+        """Liveness only; does not check database readiness."""
         response.headers["Cache-Control"] = "no-store"
         return LiveResponse(service=settings.app_name)
 
