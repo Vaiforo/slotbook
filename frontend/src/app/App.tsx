@@ -10,6 +10,10 @@ const SpecialistPage = lazy(() =>
   import('@/pages/specialist').then((module) => ({ default: module.SpecialistPage })),
 )
 
+const ManagePage = lazy(() =>
+  import('@/pages/manage').then((module) => ({ default: module.ManagePage })),
+)
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -32,12 +36,13 @@ export function App() {
           <Suspense
             fallback={
               <p role="status" className="text-muted-foreground">
-                Открываем расписание…
+                Открываем страницу…
               </p>
             }
           >
             <Routes>
               <Route path="/" element={<Navigate to="/s/demo" replace />} />
+              <Route path="/manage/:id" element={<ManagePage />} />
               <Route path="/s/:slug" element={<SpecialistPage />} />
               <Route
                 path="*"

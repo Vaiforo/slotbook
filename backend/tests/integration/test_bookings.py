@@ -317,6 +317,8 @@ async def test_clock_is_checked_after_waiting_for_lock(api, operation):
                             ),
                             {"pid": blocker_pid},
                         ):
+                            # pg_stat_activity is cached within this observer transaction.
+                            await observer.execute(select(func.pg_stat_clear_snapshot()))
                             await asyncio.sleep(0.02)
                         while not await observer.scalar(
                             select(func.clock_timestamp() >= Slot.starts_at).where(

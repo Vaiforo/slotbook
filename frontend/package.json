@@ -12,11 +12,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:smoke": "playwright test",
-    "test:unit": "vitest run src/lib",
+    "test:unit": "vitest run",
     "api:generate": "openapi-typescript ../docs/openapi.json -o src/generated/api-types.ts",
     "api:check": "node scripts/check-api-types.mjs"
   },
   "dependencies": {
+    "@hookform/resolvers": "^6.0.2",
     "@js-temporal/polyfill": "^0.5.1",
     "@radix-ui/react-dialog": "^1.3.1",
     "@radix-ui/react-slot": "^1.5.0",
@@ -26,13 +27,18 @@
     "lucide-react": "^1.61.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-hook-form": "^7.91.0",
     "react-router-dom": "^7.18.4",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.56.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
@@ -41,6 +47,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^16.5.0",
+    "jsdom": "^30.1.3",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.10",
     "tailwindcss": "^4.3.3",
