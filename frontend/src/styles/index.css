@@ -417,6 +417,7 @@ h1 {
   font-weight: 650;
 }
 .skip-link {
+  clip-path: inset(50%);
   position: fixed;
   left: 16px;
   top: -100px;
@@ -426,6 +427,7 @@ h1 {
   background: white;
 }
 .skip-link:focus {
+  clip-path: none;
   top: 12px;
 }
 @media (max-width: 1000px) {
