@@ -268,3 +268,43 @@ def test_seed_password_is_opt_in_and_repeatable(database):
             assert verify_password(PASSWORD, encoded)
     finally:
         engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_schedule_lists_closed_and_occupied_slots_only_for_owner(api):
+    _, client, users = api
+    headers = await login(client, users[0])
+    identity = (await client.get("/api/v1/auth/me")).json()
+    assert identity["specialist"]["timezone"] == "UTC"
+    first = slot_data()
+    slot = (await client.post("/api/v1/slots", headers=headers, json=first)).json()
+    filters = {"from": first["starts_at"], "to": first["ends_at"]}
+    listing = await client.get("/api/v1/me/slots", params=filters)
+    assert listing.json()["items"][0]["has_booking"] is False
+    await client.patch(f"/api/v1/slots/{slot['id']}", headers=headers, json={"state": "closed"})
+    assert (await client.get("/api/v1/me/slots", params=filters)).json()["items"][0][
+        "state"
+    ] == "closed"
+    await client.patch(f"/api/v1/slots/{slot['id']}", headers=headers, json={"state": "open"})
+    await client.post(
+        "/api/v1/bookings",
+        json={
+            "slot_id": slot["id"],
+            "client_name": "Private",
+            "client_email": "private@example.com",
+        },
+    )
+    listing = await client.get("/api/v1/me/slots", params=filters)
+    assert listing.json()["items"][0]["has_booking"] is True
+    assert "client_email" not in listing.text
+    assert (await client.get("/api/v1/me/slots", params={**filters, "offset": 1})).json()[
+        "items"
+    ] == []
+    assert (await client.get("/api/v1/me/slots", params={**filters, "limit": 0})).status_code == 422
+    await login(client, users[1])
+    assert (await client.get("/api/v1/auth/me")).json()["specialist"]["id"] != identity[
+        "specialist"
+    ]["id"]
+    assert (await client.get("/api/v1/me/slots", params=filters)).json()["items"] == []
+    client.cookies.clear()
+    assert (await client.get("/api/v1/me/slots", params=filters)).status_code == 401

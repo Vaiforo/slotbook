@@ -11,8 +11,11 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.models import Specialist, User
+from app.modules.owner.security import hasher
 from scripts.seed_demo import seed_demo
 
 
@@ -41,7 +44,29 @@ def main() -> None:
         os.environ["SLOTBOOK_DATABASE_URL"] = url
         config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
         command.upgrade(config, "head")
-        seed_demo(url)
+        # Credentials exist only inside this disposable browser-test database.
+        seed_demo(url, password="browser-owner-password")
+        fixture_engine = create_engine(url)
+        try:
+            with Session(fixture_engine) as session, session.begin():
+                other = User(
+                    normalized_email="other@example.invalid",
+                    password_hash=hasher.hash("browser-other-password"),
+                )
+                session.add(other)
+                session.flush()
+                session.add(
+                    Specialist(
+                        user_id=other.id,
+                        slug="other",
+                        display_name="Другой специалист",
+                        timezone="Asia/Omsk",
+                    )
+                )
+        finally:
+            fixture_engine.dispose()
+        os.environ["SLOTBOOK_ENVIRONMENT"] = "test"
+        os.environ["SLOTBOOK_PUBLIC_ORIGIN"] = "http://127.0.0.1:5173"
         child = subprocess.Popen(
             [
                 sys.executable,

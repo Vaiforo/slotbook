@@ -66,6 +66,7 @@ def test_openapi_export_without_database(tmp_path, monkeypatch):
         "/api/v1/slots",
         "/api/v1/slots/{slot_id}",
         "/api/v1/me/bookings",
+        "/api/v1/me/slots",
     }
     assert "manage_token_hash" not in output.read_text()
     assert "BookingCreated" in schema["components"]["schemas"]
