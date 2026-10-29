@@ -14,6 +14,17 @@ const ManagePage = lazy(() =>
   import('@/pages/manage').then((module) => ({ default: module.ManagePage })),
 )
 
+const LoginPage = lazy(() => import('@/pages/login').then((m) => ({ default: m.LoginPage })))
+const OwnerLayout = lazy(() =>
+  import('@/components/owner/layout').then((m) => ({ default: m.OwnerLayout })),
+)
+const DashboardPage = lazy(() =>
+  import('@/pages/dashboard').then((m) => ({ default: m.DashboardPage })),
+)
+const SchedulePage = lazy(() =>
+  import('@/pages/schedule').then((m) => ({ default: m.SchedulePage })),
+)
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -29,7 +40,9 @@ export function App() {
               </span>
               SlotBook
             </Link>
-            <span className="header-caption">Время для встречи</span>
+            <Link to="/dashboard" className="header-caption">
+              Кабинет специалиста
+            </Link>
           </div>
         </header>
         <main id="main" className="site-width main-content">
@@ -42,6 +55,11 @@ export function App() {
           >
             <Routes>
               <Route path="/" element={<Navigate to="/s/demo" replace />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/dashboard" element={<OwnerLayout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="schedule" element={<SchedulePage />} />
+              </Route>
               <Route path="/manage/:id" element={<ManagePage />} />
               <Route path="/s/:slug" element={<SpecialistPage />} />
               <Route

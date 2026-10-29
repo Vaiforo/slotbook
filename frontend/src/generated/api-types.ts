@@ -123,6 +123,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Slots */
+        get: operations["owner_slots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/slots": {
         parameters: {
             query?: never;
@@ -337,6 +354,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            specialist: components["schemas"]["PublicSpecialist"] | null;
         };
         /** LiveResponse */
         LiveResponse: {
@@ -388,6 +406,15 @@ export interface components {
              */
             state: "open" | "closed";
         };
+        /** OwnerSlots */
+        OwnerSlots: {
+            /** Items */
+            items: components["schemas"]["ScheduleSlot"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** PublicSlot */
         PublicSlot: {
             /**
@@ -419,6 +446,31 @@ export interface components {
             slug: string;
             /** Timezone */
             timezone: string;
+        };
+        /** ScheduleSlot */
+        ScheduleSlot: {
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Has Booking */
+            has_booking: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "open" | "closed";
         };
         /** SlotCreate */
         SlotCreate: {
@@ -968,6 +1020,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OwnerBookings"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Method Not Allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    owner_slots: {
+        parameters: {
+            query: {
+                /** @description Inclusive start; ISO 8601 with UTC offset. Range at most 31 days. */
+                from: string;
+                /** @description Exclusive start-time bound; ISO 8601 with UTC offset. */
+                to: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerSlots"];
                 };
             };
             /** @description Unauthorized */

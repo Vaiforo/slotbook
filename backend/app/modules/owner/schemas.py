@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.modules.bookings.schemas import BookingDetails
-from app.modules.specialists.schemas import SlotFilters
+from app.modules.specialists.schemas import PublicSpecialist, SlotFilters
 
 
 class Login(BaseModel):
@@ -18,6 +18,7 @@ class Identity(BaseModel):
     id: UUID
     email: str
     csrf_token: str
+    specialist: PublicSpecialist | None
 
 
 class SlotCreate(BaseModel):
@@ -49,5 +50,15 @@ class BookingFilters(SlotFilters):
 
 class OwnerBookings(BaseModel):
     items: list[BookingDetails]
+    limit: int
+    offset: int
+
+
+class ScheduleSlot(OwnerSlot):
+    has_booking: bool
+
+
+class OwnerSlots(BaseModel):
+    items: list[ScheduleSlot]
     limit: int
     offset: int

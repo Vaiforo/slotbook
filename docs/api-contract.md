@@ -153,7 +153,7 @@ Authorization: Bearer <manage-token>
 типы. Общий request добавляет Accept, same-origin credentials, передаёт AbortSignal,
 не повторяет запросы автоматически. `ApiError` содержит status, code, requestId.
 HTML/не-JSON от proxy преобразуется в безопасный `invalid_response`.
-Для будущих mutations предусмотрен X-CSRF-Token; запросы GET его не добавляют.
+Mutations владельца передают X-CSRF-Token; запросы GET его не добавляют.
 Ни CSRF, ни manage token не сохраняются клиентом в localStorage.
 
 `queryKeys.specialist(slug)` и `queryKeys.slots(slug, filters)` включают все фильтры
@@ -186,7 +186,8 @@ GET /api/v1/auth/me
 Cookie: session=<opaque-token>
 ```
 
-200: собственные `id`, `email` и `csrf_token`; без сессии 401.
+200: собственные `id`, `email`, `csrf_token` и `specialist` (id/slug/display_name/timezone).
+Если профиль ещё не настроен, specialist равен null. Без сессии 401.
 
 ```http
 POST /api/v1/auth/logout
@@ -237,3 +238,12 @@ Cookie: session=<opaque-token>
 Коды ошибок: 401 unauthorized, 403 forbidden, 404 not_found,
 409 slot_unavailable или конкретный business code, 422 validation_error,
 500 internal_error. Rate limiting пока не реализован.
+
+### Расписание владельца
+
+`GET /api/v1/me/slots?from=…&to=…&limit=100&offset=0` требует cookie-сессию.
+Диапазон/пагинация такие же, как у публичных слотов; выдача упорядочена по
+starts_at/id. Возвращает `{items, limit, offset}`. Элемент содержит
+id/starts_at/ends_at/state и `has_booking` (есть confirmed-запись).
+Включены закрытые, занятые и прошедшие слоты только текущего владельца.
+Контактов клиентов и токенов в ответе нет. Ownership включён в SQL.

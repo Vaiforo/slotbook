@@ -21,10 +21,13 @@ from app.modules.owner.schemas import (
     Login,
     OwnerBookings,
     OwnerSlot,
+    OwnerSlots,
+    ScheduleSlot,
     SlotCreate,
     SlotUpdate,
 )
 from app.modules.owner.security import DUMMY_HASH, csrf_for, digest, hasher, verify_password
+from app.modules.specialists.schemas import PublicSpecialist, SlotFilters
 
 router = APIRouter(
     prefix="/api/v1",
@@ -77,7 +80,15 @@ async def login(
 
 @router.get("/auth/me", response_model=Identity, operation_id="current_owner")
 async def me(owner: Owner) -> Identity:
-    return Identity(id=owner.user.id, email=owner.user.normalized_email, csrf_token=owner.csrf)
+    specialist = await owner.db.scalar(
+        select(Specialist).where(Specialist.user_id == owner.user.id)
+    )
+    return Identity(
+        id=owner.user.id,
+        email=owner.user.normalized_email,
+        csrf_token=owner.csrf,
+        specialist=PublicSpecialist.model_validate(specialist) if specialist else None,
+    )
 
 
 @router.post("/auth/logout", status_code=204, operation_id="logout")
@@ -161,6 +172,33 @@ async def bookings(filters: Annotated[BookingFilters, Query()], owner: Owner) ->
     )
     return OwnerBookings(
         items=[details(booking, slot) for booking, slot in rows],
+        limit=filters.limit,
+        offset=filters.offset,
+    )
+
+
+@router.get("/me/slots", response_model=OwnerSlots, operation_id="owner_slots")
+async def slots(filters: Annotated[SlotFilters, Query()], owner: Owner) -> OwnerSlots:
+    occupied = (
+        select(Booking.id).where(Booking.slot_id == Slot.id, Booking.status == "confirmed").exists()
+    )
+    rows = await owner.db.execute(
+        select(Slot, occupied)
+        .join(Specialist, Slot.specialist_id == Specialist.id)
+        .where(
+            Specialist.user_id == owner.user.id,
+            Slot.starts_at >= filters.from_,
+            Slot.starts_at < filters.to,
+        )
+        .order_by(Slot.starts_at, Slot.id)
+        .limit(filters.limit)
+        .offset(filters.offset)
+    )
+    return OwnerSlots(
+        items=[
+            ScheduleSlot(**OwnerSlot.model_validate(slot).model_dump(), has_booking=booked)
+            for slot, booked in rows
+        ],
         limit=filters.limit,
         offset=filters.offset,
     )
