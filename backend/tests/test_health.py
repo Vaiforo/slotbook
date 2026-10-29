@@ -30,6 +30,12 @@ async def test_live_contract_and_no_placeholder_routes() -> None:
             "/api/v1/bookings",
             "/api/v1/bookings/{booking_id}",
             "/api/v1/bookings/{booking_id}/cancel",
+            "/api/v1/auth/login",
+            "/api/v1/auth/me",
+            "/api/v1/auth/logout",
+            "/api/v1/slots",
+            "/api/v1/slots/{slot_id}",
+            "/api/v1/me/bookings",
         }
 
 
