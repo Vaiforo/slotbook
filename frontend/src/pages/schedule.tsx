@@ -34,9 +34,12 @@ export function SchedulePage() {
   const [publishing, setPublishing] = useState(false)
   const slots = useQuery({
     queryKey: [...ownerKey(owner.id), 'slots', filters],
+    enabled: !owner.checkingSession,
     queryFn: ({ signal }) =>
       ownerSlots(filters, AbortSignal.any([signal, AbortSignal.timeout(10_000)])),
     gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
   function refresh() {
     void client.invalidateQueries({ queryKey: ownerKey(owner.id) })
@@ -217,7 +220,7 @@ export function SchedulePage() {
         }}
       />
       <Dialog
-        open={!!closing}
+        open={!!closing && !owner.checkingSession}
         onOpenChange={(open) => {
           if (!open && !mutation.isPending) setClosing(null)
         }}

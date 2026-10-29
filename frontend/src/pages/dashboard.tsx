@@ -32,8 +32,10 @@ export function DashboardPage() {
     queryKey: [...ownerKey(owner.id), 'bookings', filters],
     queryFn: ({ signal }) =>
       ownerBookings(filters, AbortSignal.any([signal, AbortSignal.timeout(10_000)])),
-    enabled: !rangeError,
+    enabled: !rangeError && !owner.checkingSession,
     gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
   function filter(name: string, value: string) {
     setParams((prev) => {
