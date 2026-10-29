@@ -125,8 +125,8 @@ Authorization: Bearer <manage-token>
 200 содержит те же поля записи, кроме `manage_token`. Хеш никогда не возвращается.
 GET ничего не изменяет. UUID записи без секрета не даёт доступ. Отсутствующая запись,
 неверный/отсутствующий token, token другой записи, cookie или token в query вместо
-Authorization возвращают одинаковый 404 `not_found`. Cookie-авторизация владельца
-пока не реализована и не используется как обход проверки секрета.
+Authorization возвращают одинаковый 404 `not_found`. Cookie-сессия владельца
+не используется как обход проверки секрета.
 
 ```http
 POST /api/v1/bookings/<booking-id>/cancel
@@ -161,12 +161,11 @@ HTML/не-JSON от proxy преобразуется в безопасный `in
 использует TanStack Query и общий клиент. HTTP-ошибки 4xx не повторяются; для
 сети/5xx разрешена одна повторная попытка. Публичные ответы типизированы по OpenAPI.
 
-## Проект оставшихся операций — НЕ реализованы
+## API владельца
 
-Следующие примеры — проект контракта, не действующие handlers.
-Они отсутствуют в OpenAPI и генерируемых типах до реализации. Для защиты от дрейфа
-конкретные схемы будут закреплены Pydantic вместе с соответствующими обработчиками.
-UUID и токены ниже — placeholders. Даты в примерах иллюстрируют формат.
+Все изменения с cookie требуют точного Origin из SLOTBOOK_PUBLIC_ORIGIN.
+Вход также проверяет Origin для защиты от login CSRF. Сессия живёт 12 часов,
+в БД хранится только хеш. Повторный вход отзывает текущую сессию этого браузера.
 
 ### Вход, сессия и выход
 
@@ -178,6 +177,8 @@ Content-Type: application/json
 ```
 
 Успех 204, `Set-Cookie` с непрозрачной сессией HttpOnly/Secure/SameSite=Lax.
+Для HTTP cookie без Secure разрешена только development/test loopback-конфигурация.
+Production требует HTTPS origin; Secure не зависит от входящего Host.
 Неверные credentials — 401 без подсказки о существовании email.
 
 ```http
@@ -208,7 +209,8 @@ Content-Type: application/json
 ```
 
 201: `id`, `starts_at`, `ends_at`, `state: "open"`. Специалист выводится из сессии,
-не задаётся произвольным client-side specialist_id. Пересечение — 409.
+не задаётся произвольным client-side specialist_id. Пересечение — 409 `slot_overlap`, прошлое время — 409 `slot_started`.
+Длительность ровно 30 минут, timezone offset обязателен; лишние поля запрещены.
 
 ```http
 PATCH /api/v1/slots/<slot-id>
@@ -220,7 +222,7 @@ Content-Type: application/json
 ```
 
 200: обновлённый слот. Изменение времени не поддерживается. Чужой слот — 404;
-закрытие слота с активной записью — 409. Повторное открытие — `state: "open"`.
+закрытие слота с активной записью — 409 `slot_booked`; прошедший слот — 409 `slot_started`. Повторное открытие — `state: "open"`.
 
 ### Список записей владельца
 
@@ -232,7 +234,6 @@ Cookie: session=<opaque-token>
 200: `{items, limit, offset}` со своими записями и контактами; ownership учитывается
 в SQL. Нет сессии — 401. Перечисленные приватные ответы — no-store/no-referrer.
 
-Базовая таблица будущих ошибок: 401 unauthorized, 403 forbidden, 404 not_found,
+Коды ошибок: 401 unauthorized, 403 forbidden, 404 not_found,
 409 slot_unavailable или конкретный business code, 422 validation_error,
-429 rate_limited (Retry-After), 500 internal_error. Бизнес-коды фиксируются при
-реализации сценария, не подменяются общим успешным ответом в текущем API.
+500 internal_error. Rate limiting пока не реализован.

@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.errors import ErrorResponse, install_error_handling
 from app.core.logging import configure_logging
 from app.modules.bookings.router import router as bookings_router
+from app.modules.owner.router import router as owner_router
 from app.modules.specialists.router import router
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         responses={code: {"model": ErrorResponse} for code in (404, 405, 422, 500)},
     )
+    app.state.settings = settings
+    app.include_router(owner_router)
     app.add_middleware(BodyLimitMiddleware)
     install_error_handling(app)
     app.include_router(router)

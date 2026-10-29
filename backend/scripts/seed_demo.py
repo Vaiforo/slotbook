@@ -1,20 +1,24 @@
-"""Explicit, repeatable synthetic data. Never creates a usable login password."""
+"""Explicit, repeatable synthetic data. Password activation is explicit and opt-in."""
 
+import os
 from datetime import datetime, time, timedelta
 from uuid import NAMESPACE_URL, uuid5
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, delete, text
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.config import Settings
-from app.models import Slot, Specialist, User
+from app.models import Session, Slot, Specialist, User
+from app.modules.owner.security import hasher
 
 DEMO_USER = uuid5(NAMESPACE_URL, "slotbook/demo/user")
 DEMO_SPECIALIST = uuid5(NAMESPACE_URL, "slotbook/demo/specialist")
 
 
-def seed_demo(url: str) -> None:
+def seed_demo(url: str, password: str | None = None) -> None:
+    if password is not None and len(password) < 12:
+        raise ValueError("Demo password must contain at least 12 characters")
     engine = create_engine(url)
     try:
         with engine.begin() as conn:
@@ -28,6 +32,13 @@ def seed_demo(url: str) -> None:
                 )
                 .on_conflict_do_nothing(index_elements=[User.id])
             )
+            if password is not None:
+                conn.execute(delete(Session).where(Session.user_id == DEMO_USER))
+                conn.execute(
+                    User.__table__.update()
+                    .where(User.id == DEMO_USER)
+                    .values(password_hash=hasher.hash(password))
+                )
             conn.execute(
                 insert(Specialist)
                 .values(
@@ -59,5 +70,5 @@ def seed_demo(url: str) -> None:
 
 
 if __name__ == "__main__":
-    seed_demo(Settings().database_url)
-    print("Demo data ready (demo@example.invalid; login disabled).")
+    seed_demo(Settings().database_url, os.getenv("SLOTBOOK_DEMO_PASSWORD"))
+    print("Demo data ready (demo@example.invalid).")
