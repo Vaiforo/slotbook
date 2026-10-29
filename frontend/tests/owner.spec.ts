@@ -1,22 +1,12 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { login } from './helpers/owner'
 import { addDays, todayIn } from '../src/lib/dates'
 
 const date = () => addDays(todayIn('Asia/Omsk'), 3)
-async function login(
-  page: Page,
-  email = 'demo@example.invalid',
-  password = 'browser-owner-password',
-) {
-  await expect(page.getByRole('heading', { name: 'Войти в SlotBook' })).toBeVisible()
-  await page.getByLabel('Email', { exact: true }).fill(email)
-  await page.getByLabel('Пароль', { exact: true }).fill(password)
-  await page.getByRole('button', { name: 'Войти', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Выйти', exact: true })).toBeVisible()
-}
 
 test('owner publishes, client books, owner sees booking and closes free time', async ({
   page,
-  context,
+  browser,
 }, testInfo) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -58,7 +48,12 @@ test('owner publishes, client books, owner sees booking and closes free time', a
   await expect(page.getByRole('link', { name: 'Перейти к содержимому' })).not.toBeFocused()
   await free.getByRole('button', { name: 'Открыть слот' }).click()
   await expect(free.getByText('Свободен', { exact: true })).toBeVisible()
-  const guest = await context.newPage()
+  const guestContext = await browser.newContext({
+    baseURL: 'http://127.0.0.1:5173',
+    timezoneId: 'America/Los_Angeles',
+    locale: 'ru-RU',
+  })
+  const guest = await guestContext.newPage()
   await guest.goto('/s/demo')
   await guest.getByRole('button', { name: 'Перейти к дате', exact: true }).click()
   await guest.getByLabel('Дата встречи').fill(date())
@@ -71,7 +66,7 @@ test('owner publishes, client books, owner sees booking and closes free time', a
   await guest.getByLabel('Email', { exact: true }).fill('dashboard-client@example.com')
   await guest.getByRole('button', { name: 'Подтвердить запись' }).click()
   await expect(guest.getByRole('heading', { name: 'Вы записаны' })).toBeVisible()
-  await guest.close()
+  await guestContext.close()
   await page.getByRole('button', { name: 'Обновить расписание' }).click()
   await expect(page.getByText('Есть запись', { exact: true })).toBeVisible()
   await expect(

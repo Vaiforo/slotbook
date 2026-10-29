@@ -1,8 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { CalendarDays } from 'lucide-react'
 import { queryClient } from './query-client'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 
@@ -25,10 +25,23 @@ const SchedulePage = lazy(() =>
   import('@/pages/schedule').then((m) => ({ default: m.SchedulePage })),
 )
 
+function RouteFocus() {
+  const { pathname } = useLocation()
+  const previous = useRef(pathname)
+  useEffect(() => {
+    if (previous.current === pathname) return
+    previous.current = pathname
+    document.getElementById('main')?.focus({ preventScroll: true })
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <RouteFocus />
         <a className="skip-link" href="#main">
           Перейти к содержимому
         </a>
@@ -45,7 +58,7 @@ export function App() {
             </Link>
           </div>
         </header>
-        <main id="main" className="site-width main-content">
+        <main id="main" tabIndex={-1} className="site-width main-content">
           <Suspense
             fallback={
               <p role="status" className="text-muted-foreground">
