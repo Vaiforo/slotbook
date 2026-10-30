@@ -12,6 +12,7 @@ compose=(docker compose --env-file /dev/null -p "$project" -f compose.production
 cleanup() {
   result=$?
   if [ "$result" != 0 ]; then "${compose[@]}" logs --tail=60; fi
+  docker rm -f "$project-ip-holder" >/dev/null 2>&1 || true
   "${compose[@]}" down -v --remove-orphans
   exit "$result"
 }
@@ -38,12 +39,42 @@ rm /tmp/slotbook-response-$$
 # Database ports must have no host bindings.
 docker inspect "$("${compose[@]}" ps -q db)" | python3 -c 'import json,sys; assert not any(json.load(sys.stdin)[0]["NetworkSettings"]["Ports"].values())'
 node frontend/scripts/check-production.mjs "$base"
+python3 scripts/check-proxy-error.py "$base/api/v1/slots" 413 payload_too_large
 for path in /api/v1/auth/login /api/v1/bookings; do
   for attempt in $(seq 1 12); do
     code=$(curl -sS -X POST -o /dev/null -w '%{http_code}' "$base$path")
   done
   test "$code" = 429
+  python3 scripts/check-proxy-error.py "$base$path" 429 rate_limited
 done
+# Force a different API address, as can happen during deployment/recovery.
+old_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$("${compose[@]}" ps -q api)")
+"${compose[@]}" rm -s -f api
+python3 scripts/check-proxy-error.py "$base/api/v1/slots" 503 service_unavailable
+docker run -d --name "$project-ip-holder" --network "${project}_default" \
+  --entrypoint python "slotbook-api:$IMAGE_TAG" -c 'import time; time.sleep(120)' >/dev/null
+"${compose[@]}" up -d --no-deps --wait --wait-timeout 60 api
+new_ip=$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$("${compose[@]}" ps -q api)")
+test "$new_ip" != "$old_ip"
+recovered=false
+for attempt in $(seq 1 15); do
+  if curl -fsS --max-time 6 "$base/health/ready" >/dev/null; then
+    recovered=true
+    break
+  fi
+  sleep 2
+done
+if [ "$recovered" != true ]; then
+  echo 'Proxy did not recover after the API address changed' >&2
+  exit 1
+fi
+docker rm -f "$project-ip-holder" >/dev/null
+# Recover the DB connection pool without restarting the API.
+"${compose[@]}" stop db
+test "$(curl -s --max-time 6 -o /dev/null -w '%{http_code}' "$base/health/ready")" = 503
+curl -fsS "$base/health/live"
+"${compose[@]}" up -d --wait db
+curl -fsS "$base/health/ready"
 # A running DB with an incorrect migration must not be ready.
 "${compose[@]}" exec -T db psql -U slotbook -c "UPDATE alembic_version SET version_num='wrong'"
 test "$(curl -s -o /dev/null -w '%{http_code}' "$base/health/ready")" = 503
