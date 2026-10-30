@@ -1,7 +1,7 @@
 [project]
 name = "slotbook-backend"
-version = "0.0.0"
-description = "SlotBook API — project foundation"
+version = "0.1.0"
+description = "SlotBook appointment booking API"
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "email-validator>=2.2,<3",
