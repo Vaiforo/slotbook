@@ -21,10 +21,10 @@ async def test_live_contract_and_no_placeholder_routes() -> None:
         assert response.status_code == 200
         assert response.json() == {"status": "ok", "service": "SlotBook"}
         assert response.headers["cache-control"] == "no-store"
-        assert (await client.get("/health/ready")).status_code == 404
         assert (await client.get("/api/v1/not-implemented")).status_code == 404
         assert set((await client.get("/openapi.json")).json()["paths"]) == {
             "/health/live",
+            "/health/ready",
             "/api/v1/specialists/{slug}",
             "/api/v1/specialists/{slug}/slots",
             "/api/v1/bookings",

@@ -55,6 +55,7 @@ def test_openapi_export_without_database(tmp_path, monkeypatch):
     schema = json.loads(output.read_text())
     assert set(schema["paths"]) == {
         "/health/live",
+        "/health/ready",
         "/api/v1/specialists/{slug}",
         "/api/v1/specialists/{slug}/slots",
         "/api/v1/bookings",
