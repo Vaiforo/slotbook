@@ -7,8 +7,8 @@
 
 ## Реализовано
 
-Все API пути ниже имеют префикс `/api/v1`. Запросы — same-origin через Vite proxy.
-Ответы содержат `X-Request-ID` (новый UUID сервера, входящий заголовок не используется)
+Все API пути ниже имеют префикс `/api/v1`. Запросы — same-origin через Vite proxy или production Nginx.
+Ответы API содержат `X-Request-ID` (новый UUID FastAPI, входящий заголовок не используется)
 и `Cache-Control: no-store`. Ошибки имеют единую структуру:
 
 ```json
@@ -247,3 +247,15 @@ starts_at/id. Возвращает `{items, limit, offset}`. Элемент со
 id/starts_at/ends_at/state и `has_booking` (есть confirmed-запись).
 Включены закрытые, занятые и прошедшие слоты только текущего владельца.
 Контактов клиентов и токенов в ответе нет. Ownership включён в SQL.
+
+## Инфраструктурные ответы
+
+`GET /health/live` отвечает `{status: "ok", service: "SlotBook"}` без проверки БД.
+`GET /health/ready` возвращает тот же ответ только при доступной БД и точном
+совпадении migration heads. Иначе 503 `not_ready`, без сведений о подключении.
+
+Ошибки, сформированные Nginx, имеют ту же структуру `error`: 413
+`payload_too_large`, 429 `rate_limited` (с `Retry-After: 60`), 503
+`service_unavailable` при недоступном upstream. Их request_id — 32 hex-символа,
+а не UUID FastAPI; клиенты должны рассматривать его как непрозрачную строку.
+В теле и `X-Request-ID` одно значение, `Cache-Control: no-store`.
