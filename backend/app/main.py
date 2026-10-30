@@ -12,6 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app import __version__
 from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import Settings
 from app.core.errors import DomainError, ErrorResponse, install_error_handling
@@ -45,7 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(
         title=settings.app_name,
-        version="0.0.0",
+        version=__version__,
         lifespan=lifespan,
         responses={code: {"model": ErrorResponse} for code in (404, 405, 422, 500)},
     )

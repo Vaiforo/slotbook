@@ -26,6 +26,17 @@ else
 fi
 "${compose[@]}" up -d --wait --wait-timeout 120
 base="http://127.0.0.1:$HTTP_PORT"
+"${compose[@]}" exec -T api python -m scripts.seed_demo
+"${compose[@]}" exec -T api python -m scripts.seed_demo
+python3 scripts/demo-api.py --base-url "$base" --book-and-cancel
+# Restore a synthetic dump into a separate database; never replace the source.
+"${compose[@]}" exec -T db createdb -U slotbook slotbook_restore_check
+"${compose[@]}" exec -T db pg_dump -U slotbook -Fc slotbook | \
+  "${compose[@]}" exec -T db pg_restore -U slotbook --exit-on-error -d slotbook_restore_check
+test "$("${compose[@]}" exec -T db psql -U slotbook -d slotbook_restore_check -Atc "SELECT count(*) FROM bookings WHERE status='cancelled'")" = 1
+test "$("${compose[@]}" exec -T db psql -U slotbook -d slotbook_restore_check -Atc 'SELECT count(*) FROM slots')" = 4
+"${compose[@]}" exec -T db dropdb -U slotbook slotbook_restore_check
+echo 'Synthetic backup restoration passed.'
 for path in / /dashboard /manage/00000000-0000-0000-0000-000000000000; do
   curl -fsS "$base$path" | grep -q '<div id="root">'
 done

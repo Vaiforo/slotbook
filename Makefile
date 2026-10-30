@@ -14,7 +14,7 @@ backend:
 frontend:
 	cd frontend && npm run dev
 
-check: api-check
+check: api-check version-check
 	cd backend && uv run --frozen ruff check .
 	cd backend && uv run --frozen ruff format --check .
 	cd backend && uv run --frozen mypy app
@@ -56,3 +56,7 @@ api-generate:
 api-check:
 	cd backend && uv run --frozen python -m scripts.export_openapi --check
 	cd frontend && npm run api:check
+
+.PHONY: version-check
+version-check:
+	cd backend && uv run --frozen python -m scripts.check_version
