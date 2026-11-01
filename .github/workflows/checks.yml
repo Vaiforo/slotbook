@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      SLOTBOOK_TEST_REDIS_URL: redis://127.0.0.1:6379/0
       SLOTBOOK_TEST_ADMIN_URL: postgresql+psycopg://slotbook:slotbook_local_only@127.0.0.1:5432/slotbook
     steps:
       - uses: actions/checkout@v4

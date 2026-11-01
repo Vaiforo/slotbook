@@ -31,10 +31,10 @@ smoke:
 .PHONY: db-up db-stop migrate seed db-test
 
 db-up:
-	docker compose up -d --wait db
+	docker compose up -d --wait db redis
 
 db-stop:
-	docker compose stop db
+	docker compose stop db redis
 
 migrate:
 	cd backend && uv run --frozen alembic upgrade head

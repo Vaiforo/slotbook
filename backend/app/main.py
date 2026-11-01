@@ -8,6 +8,9 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi import FastAPI, Response
 from pydantic import BaseModel
+from redis.asyncio import Redis
+from redis.asyncio.retry import Retry
+from redis.backoff import NoBackoff
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -17,6 +20,7 @@ from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import Settings
 from app.core.errors import DomainError, ErrorResponse, install_error_handling
 from app.core.logging import configure_logging
+from app.core.rate_limit import RateLimitMiddleware
 from app.modules.bookings.router import router as bookings_router
 from app.modules.owner.router import router as owner_router
 from app.modules.specialists.router import router
@@ -38,9 +42,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.info("SlotBook API started (%s)", settings.environment)
         engine = create_async_engine(settings.database_url, pool_pre_ping=True)
         app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        app.state.redis = (
+            Redis.from_url(
+                settings.redis_url,
+                socket_connect_timeout=0.5,
+                socket_timeout=0.5,
+                retry=Retry(NoBackoff(), 0),
+            )
+            if settings.redis_url
+            else None
+        )
         try:
             yield
         finally:
+            if app.state.redis is not None:
+                await app.state.redis.aclose()
             await engine.dispose()
         logger.info("SlotBook API stopped")
 
@@ -53,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.include_router(owner_router)
     app.add_middleware(BodyLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware, settings=settings)
     install_error_handling(app)
     app.include_router(router)
     app.include_router(bookings_router)
