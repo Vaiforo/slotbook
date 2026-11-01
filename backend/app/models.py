@@ -105,3 +105,40 @@ class Booking(Base):
         ),
         Index("bookings_slot_created", "slot_id", "created_at"),
     )
+
+
+class OutboxEvent(Base):
+    __tablename__ = "outbox_events"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    booking_id: Mapped[UUID] = mapped_column(ForeignKey("bookings.id", ondelete="RESTRICT"))
+    kind: Mapped[str] = mapped_column(String(30))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_publish_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    __table_args__ = (
+        CheckConstraint("kind IN ('booking_created', 'booking_cancelled')", name="outbox_kind"),
+    )
+
+
+class NotificationDelivery(Base):
+    __tablename__ = "notification_deliveries"
+    event_id: Mapped[UUID] = mapped_column(
+        ForeignKey("outbox_events.id", ondelete="RESTRICT"), primary_key=True
+    )
+    channel: Mapped[str] = mapped_column(String(10), primary_key=True, default="email")
+    status: Mapped[str] = mapped_column(String(10), default="pending")
+    attempts: Mapped[int] = mapped_column(default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(50))
+    __table_args__ = (
+        CheckConstraint("channel = 'email'", name="notification_channel"),
+        CheckConstraint(
+            "status IN ('pending', 'retrying', 'sent', 'failed')", name="notification_status"
+        ),
+        CheckConstraint("attempts >= 0", name="notification_attempts"),
+    )

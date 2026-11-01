@@ -15,7 +15,8 @@ COPY app ./app
 COPY migrations ./migrations
 COPY scripts ./scripts
 COPY alembic.ini ./
-RUN chmod -R a+rX /app
+RUN groupadd --gid 10001 slotbook && useradd --uid 10001 --gid 10001 --no-create-home slotbook \
+    && chmod -R a+rX /app
 USER 10001:10001
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--proxy-headers", "--forwarded-allow-ips", "*"]

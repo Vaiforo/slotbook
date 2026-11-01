@@ -4,6 +4,12 @@ x-api: &api
   build: ./backend
   environment:
     SLOTBOOK_ENVIRONMENT: production
+    NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1},mail-provider
+    no_proxy: ${NO_PROXY:-localhost,127.0.0.1},mail-provider
+    SLOTBOOK_BROKER_URL: amqp://slotbook:${RABBITMQ_PASSWORD:?Set a broker password}@rabbitmq:5672//
+    SLOTBOOK_EMAIL_URL: ${SLOTBOOK_EMAIL_URL:-http://mail-provider:8001/messages}
+    SLOTBOOK_EMAIL_API_KEY: ${SLOTBOOK_EMAIL_API_KEY:-}
+    SLOTBOOK_NOTIFICATION_MAX_ATTEMPTS: ${SLOTBOOK_NOTIFICATION_MAX_ATTEMPTS:-5}
     SLOTBOOK_REDIS_URL: ${SLOTBOOK_REDIS_URL:-redis://redis:6379/0}
     SLOTBOOK_LOGIN_LIMIT: ${SLOTBOOK_LOGIN_LIMIT:-10}
     SLOTBOOK_BOOKING_LIMIT: ${SLOTBOOK_BOOKING_LIMIT:-20}
@@ -12,6 +18,39 @@ x-api: &api
     SLOTBOOK_PUBLIC_ORIGIN: ${SLOTBOOK_PUBLIC_ORIGIN:?Set the public HTTPS origin}
     SLOTBOOK_DATABASE_URL: ${SLOTBOOK_DATABASE_URL:?Set the database URL with host db}
 services:
+  rabbitmq:
+    image: rabbitmq:4.1-alpine
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: slotbook
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set a broker password}
+    volumes: [rabbit_data:/var/lib/rabbitmq]
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  mail-provider:
+    image: slotbook-api:${IMAGE_TAG:-local}
+    command: [uvicorn, scripts.mail_provider:app, --host, 0.0.0.0, --port, "8001", --no-access-log]
+    # Synthetic receipts only; no contacts or message bodies are retained.
+    tmpfs: ["/data:uid=10001,gid=10001,mode=0700"]
+    restart: unless-stopped
+  worker:
+    <<: *api
+    command: [celery, -A, app.notifications.queue:celery, worker, --concurrency=2, --loglevel=WARNING]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+    restart: unless-stopped
+  dispatcher:
+    <<: *api
+    command: [python, -m, app.notifications.dispatcher]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      rabbitmq: {condition: service_healthy}
+    restart: unless-stopped
   redis:
     image: redis:8.2-alpine
     restart: unless-stopped
@@ -70,4 +109,5 @@ services:
       retries: 12
     restart: unless-stopped
 volumes:
+  rabbit_data:
   postgres_data:

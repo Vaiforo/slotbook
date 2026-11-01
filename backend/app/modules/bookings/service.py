@@ -8,6 +8,7 @@ from app.models import Booking, Slot
 from app.modules.bookings import repository
 from app.modules.bookings.schemas import BookingCreate, BookingCreated, BookingDetails
 from app.modules.bookings.security import new_manage_token, token_hash, valid_token
+from app.notifications.events import enqueue
 
 
 def unavailable() -> DomainError:
@@ -61,6 +62,7 @@ class BookingService:
                 )
                 self.session.add(booking)
                 await self.session.flush()
+                await enqueue(self.session, booking, "booking_created")
                 result = BookingCreated(**details(booking, slot).model_dump(), manage_token=token)
             # Never expose a token or success before the transaction commits.
             return result
@@ -100,5 +102,6 @@ class BookingService:
                 booking.status = "cancelled"
                 booking.cancelled_at = now
                 await self.session.flush()
+                await enqueue(self.session, booking, "booking_cancelled")
             result = details(booking, slot)
         return result

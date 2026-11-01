@@ -22,6 +22,11 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://slotbook:slotbook_local_only@127.0.0.1:5432/slotbook"
 
+    broker_url: str = "amqp://slotbook:slotbook_local_only@127.0.0.1:5672//"
+    email_url: str | None = None
+    email_api_key: str | None = None
+    notification_max_attempts: int = Field(default=5, ge=1, le=20)
+
     redis_url: str | None = None
     login_limit: int = Field(default=10, ge=1, le=10000)
     booking_limit: int = Field(default=20, ge=1, le=10000)

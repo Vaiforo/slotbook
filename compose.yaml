@@ -1,4 +1,15 @@
 services:
+  rabbitmq:
+    image: rabbitmq:4.1-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: slotbook
+      RABBITMQ_DEFAULT_PASS: slotbook_local_only
+    ports: ["127.0.0.1:5672:5672"]
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 30
   redis:
     image: redis:8.2-alpine
     ports: ["127.0.0.1:6379:6379"]

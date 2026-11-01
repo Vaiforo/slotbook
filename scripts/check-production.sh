@@ -2,6 +2,10 @@
 # Disposable stack; never uses the normal production volume or environment file.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export RABBITMQ_PASSWORD="broker-check-$$"
+export SLOTBOOK_EMAIL_URL=http://mail-provider:8001/messages
+export SLOTBOOK_EMAIL_API_KEY=''
+export SLOTBOOK_NOTIFICATION_MAX_ATTEMPTS=5
 export POSTGRES_PASSWORD="container-test-$(date +%s)-$$"
 export SLOTBOOK_DATABASE_URL="postgresql+psycopg://slotbook:${POSTGRES_PASSWORD}@db:5432/slotbook"
 export SLOTBOOK_PUBLIC_ORIGIN=https://slotbook.example.invalid
@@ -34,7 +38,30 @@ base="http://127.0.0.1:$HTTP_PORT"
 "${compose[@]}" stop redis
 python3 scripts/check-redis-outage.py "$base"
 "${compose[@]}" up -d --wait redis
+"${compose[@]}" stop worker rabbitmq
 python3 scripts/demo-api.py --base-url "$base" --book-and-cancel
+test "$("${compose[@]}" exec -T db psql -U slotbook -Atc 'SELECT count(*) FROM outbox_events')" = 2
+"${compose[@]}" up -d --wait rabbitmq
+for attempt in $(seq 1 90); do
+  published=$("${compose[@]}" exec -T db psql -U slotbook -Atc 'SELECT count(*) FROM outbox_events WHERE published_at IS NOT NULL')
+  [ "$published" = 2 ] && break
+  sleep 1
+done
+test "$published" = 2
+# Messages must survive a broker restart while the consumer remains stopped.
+"${compose[@]}" restart rabbitmq
+"${compose[@]}" up -d --wait rabbitmq
+"${compose[@]}" up -d worker
+for attempt in $(seq 1 90); do
+  delivered=$("${compose[@]}" exec -T db psql -U slotbook -Atc "SELECT count(*) FROM notification_deliveries WHERE status='sent'")
+  [ "$delivered" = 2 ] && break
+  sleep 1
+done
+test "$delivered" = 2
+"${compose[@]}" exec -T worker python -c 'from app.notifications.queue import celery; from app.core.config import Settings; from sqlalchemy import create_engine,text; e=create_engine(Settings().database_url); c=e.connect(); ids=c.execute(text("SELECT id FROM outbox_events")).scalars().all(); [celery.send_task("slotbook.deliver", args=[str(i)], retry=False) for i in ids]; c.close(); e.dispose()'
+# Provider receipt identifiers are unique; no contacts are retained.
+"${compose[@]}" exec -T mail-provider python -c 'import sqlite3; db=sqlite3.connect("/data/receipts.sqlite"); assert db.execute("SELECT count(*) FROM receipts").fetchone()[0] == 2'
+echo 'Broker outage, durable queue restart and notification delivery passed.'
 # Restore a synthetic dump into a separate database; never replace the source.
 "${compose[@]}" exec -T db createdb -U slotbook slotbook_restore_check
 "${compose[@]}" exec -T db pg_dump -U slotbook -Fc slotbook | \
