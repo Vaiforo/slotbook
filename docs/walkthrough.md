@@ -160,3 +160,11 @@ Readiness проверяет и доступность БД, и точные mig
 остаётся прямым запросом в PostgreSQL. Лимитер не заменяет блокировки/индексы БД.
 [Тесты](../backend/tests/integration/test_rate_limit.py) запускают два процесса API
 с общим бюджетом и проверяют истечение TTL, разные IP и отказ подключения.
+
+## Фоновая доставка
+
+BookingService вызывает [enqueue](../backend/app/notifications/events.py) внутри
+транзакции записи/отмены. [Dispatcher](../backend/app/notifications/dispatcher.py)
+публикует UUID через RabbitMQ, [worker](../backend/app/notifications/tasks.py)
+обновляет [доставку](../backend/app/notifications/delivery.py) после HTTP-вызова.
+[Подробности и граница at-least-once](notifications.md).

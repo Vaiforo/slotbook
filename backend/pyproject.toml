@@ -1,6 +1,6 @@
 [project]
 name = "slotbook-backend"
-version = "0.2.0"
+version = "0.3.0"
 description = "SlotBook appointment booking API"
 requires-python = ">=3.14,<3.15"
 dependencies = [
@@ -13,6 +13,8 @@ dependencies = [
     "uvicorn>=0.35,<1.0",
     "argon2-cffi>=25,<26",
     "redis>=6,<7",
+    "celery>=5.5,<6",
+    "httpx>=0.28,<1",
 ]
 
 [dependency-groups]
@@ -40,3 +42,7 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.14"
 strict = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "kombu.*"]
+ignore_missing_imports = true

@@ -46,7 +46,7 @@ export function Confirmation({
         </label>
         <p className="text-sm text-muted-foreground">
           По ней можно посмотреть или отменить встречу. Любой, у кого есть эта ссылка, получит
-          доступ к записи. Письмо не отправляется.
+          доступ к записи. Ссылка по email не отправляется.
         </p>
         <Input id="manage-link" readOnly value={link} onFocus={(event) => event.target.select()} />
         <Button
