@@ -150,3 +150,13 @@ erDiagram
 Readiness проверяет и доступность БД, и точные migration heads. [Nginx](../frontend/nginx.conf)
 отдаёт статику и обновляет IP API через Docker DNS. Проверка [check-production.sh](../scripts/check-production.sh)
 использует собственный volume, имитирует смену IP/отказ БД и удаляет только свои данные.
+
+## Общий лимит
+
+[RateLimitMiddleware](../backend/app/core/rate_limit.py) до обработчика POST
+атомарно увеличивает счётчик IP в Redis. Lua задаёт TTL при первом запросе окна.
+Все процессы используют один Redis и префикс. При 429 счётчик уже превышает лимит;
+при сбое Redis возвращается 503 до открытия транзакции записи. Чтение расписания
+остаётся прямым запросом в PostgreSQL. Лимитер не заменяет блокировки/индексы БД.
+[Тесты](../backend/tests/integration/test_rate_limit.py) запускают два процесса API
+с общим бюджетом и проверяют истечение TTL, разные IP и отказ подключения.

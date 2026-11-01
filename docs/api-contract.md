@@ -259,3 +259,9 @@ id/starts_at/ends_at/state и `has_booking` (есть confirmed-запись).
 `service_unavailable` при недоступном upstream. Их request_id — 32 hex-символа,
 а не UUID FastAPI; клиенты должны рассматривать его как непрозрачную строку.
 В теле и `X-Request-ID` одно значение, `Cache-Control: no-store`.
+
+Redis-лимитер для POST `/auth/login` и `/bookings` может вернуть 429 `rate_limited`
+с Retry-After до конца окна. При сбое лимитера — 503 `rate_limit_unavailable`,
+Retry-After: 5; операции до БД не доходят. Эти ответы имеют UUID/request_id FastAPI.
+Наличие свободного слота не обходится лимитом: успешный запрос всё равно проверяет
+доступность в транзакции PostgreSQL. Чтение слотов не кэшируется в Redis.

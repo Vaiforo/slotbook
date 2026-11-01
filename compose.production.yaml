@@ -4,9 +4,23 @@ x-api: &api
   build: ./backend
   environment:
     SLOTBOOK_ENVIRONMENT: production
+    SLOTBOOK_REDIS_URL: ${SLOTBOOK_REDIS_URL:-redis://redis:6379/0}
+    SLOTBOOK_LOGIN_LIMIT: ${SLOTBOOK_LOGIN_LIMIT:-10}
+    SLOTBOOK_BOOKING_LIMIT: ${SLOTBOOK_BOOKING_LIMIT:-20}
+    SLOTBOOK_RATE_WINDOW_SECONDS: ${SLOTBOOK_RATE_WINDOW_SECONDS:-60}
+    SLOTBOOK_RATE_PREFIX: ${SLOTBOOK_RATE_PREFIX:-slotbook:rate:v1}
     SLOTBOOK_PUBLIC_ORIGIN: ${SLOTBOOK_PUBLIC_ORIGIN:?Set the public HTTPS origin}
     SLOTBOOK_DATABASE_URL: ${SLOTBOOK_DATABASE_URL:?Set the database URL with host db}
 services:
+  redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command: [redis-server, --maxmemory, 64mb, --maxmemory-policy, noeviction, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 2s
+      retries: 30
   db:
     image: postgres:18
     environment:
@@ -33,6 +47,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=4)"]
       interval: 5s

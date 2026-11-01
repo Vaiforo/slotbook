@@ -36,7 +36,12 @@ router = APIRouter(
 )
 
 
-@router.post("/auth/login", status_code=204, operation_id="login")
+@router.post(
+    "/auth/login",
+    status_code=204,
+    operation_id="login",
+    responses={code: {"model": ErrorResponse} for code in (429, 503)},
+)
 async def login(
     data: Login, request: Request, db: Annotated[AsyncSession, Depends(get_session)]
 ) -> Response:

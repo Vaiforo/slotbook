@@ -217,7 +217,7 @@ def test_plain_http_only_for_development_loopback():
     for origin in ["http://example.com", "http://127.0.0.1:5173"]:
         with pytest.raises(ValueError):
             Settings(environment="production", public_origin=origin)
-    Settings(environment="production", public_origin=ORIGIN)
+    Settings(environment="production", public_origin=ORIGIN, redis_url="redis://localhost:6379")
     Settings(environment="development", public_origin="http://127.0.0.1:5173")
 
 

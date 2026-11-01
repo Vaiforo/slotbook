@@ -24,7 +24,13 @@ bearer = HTTPBearer(
 Credentials = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
 
 
-@router.post("", status_code=201, response_model=BookingCreated, operation_id="create_booking")
+@router.post(
+    "",
+    status_code=201,
+    response_model=BookingCreated,
+    operation_id="create_booking",
+    responses={code: {"model": ErrorResponse} for code in (429, 503)},
+)
 async def create_booking(data: BookingCreate, session: Session) -> BookingCreated:
     return await BookingService(session).create(data)
 

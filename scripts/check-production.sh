@@ -5,6 +5,9 @@ cd "$(dirname "$0")/.."
 export POSTGRES_PASSWORD="container-test-$(date +%s)-$$"
 export SLOTBOOK_DATABASE_URL="postgresql+psycopg://slotbook:${POSTGRES_PASSWORD}@db:5432/slotbook"
 export SLOTBOOK_PUBLIC_ORIGIN=https://slotbook.example.invalid
+export SLOTBOOK_REDIS_URL=redis://redis:6379/0
+export SLOTBOOK_LOGIN_LIMIT=10 SLOTBOOK_BOOKING_LIMIT=20 SLOTBOOK_RATE_WINDOW_SECONDS=60
+export SLOTBOOK_RATE_PREFIX=slotbook:rate:container-test
 export HTTP_PORT=${SLOTBOOK_CHECK_PORT:-18080}
 export IMAGE_TAG=check-$$
 project="slotbook-check-$$"
@@ -28,6 +31,9 @@ fi
 base="http://127.0.0.1:$HTTP_PORT"
 "${compose[@]}" exec -T api python -m scripts.seed_demo
 "${compose[@]}" exec -T api python -m scripts.seed_demo
+"${compose[@]}" stop redis
+python3 scripts/check-redis-outage.py "$base"
+"${compose[@]}" up -d --wait redis
 python3 scripts/demo-api.py --base-url "$base" --book-and-cancel
 # Restore a synthetic dump into a separate database; never replace the source.
 "${compose[@]}" exec -T db createdb -U slotbook slotbook_restore_check
