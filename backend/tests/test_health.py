@@ -27,6 +27,7 @@ async def test_live_contract_and_no_placeholder_routes() -> None:
             "/health/ready",
             "/api/v1/specialists/{slug}",
             "/api/v1/specialists/{slug}/slots",
+            "/api/v1/specialists/{slug}/search",
             "/api/v1/bookings",
             "/api/v1/bookings/{booking_id}",
             "/api/v1/bookings/{booking_id}/cancel",

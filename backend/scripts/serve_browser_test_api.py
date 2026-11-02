@@ -1,9 +1,12 @@
 """Run a real API with synthetic data in a disposable PostgreSQL database."""
 
+import asyncio
+import json
 import os
 import signal
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,10 +16,41 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
+from app.ai.client import LLMUnavailable
+from app.ai.router import get_llm
 from app.core.config import Settings
+from app.main import create_app
 from app.models import Specialist, User
 from app.modules.owner.security import hasher
 from scripts.seed_demo import seed_demo
+
+
+def create_browser_app():
+    """Deterministic LLM fixture ONLY for the disposable browser-test runner."""
+    settings = Settings()
+    if settings.environment != "test":
+        raise RuntimeError("Browser fixtures require test environment")
+    app = create_app(settings)
+
+    class BrowserLLM:
+        async def extract(self, text: str, now: datetime, timezone: str) -> str:
+            if text == "Сбой провайдера":
+                raise LLMUnavailable()
+            if text == "Медленный ответ":
+                await asyncio.sleep(1)
+            ambiguous = text == "Завтра после трёх"
+            return json.dumps(
+                {
+                    "date": (now.date() + timedelta(days=1)).isoformat(),
+                    "time_from": "10:00",
+                    "time_to": "12:00",
+                    "needs_clarification": ambiguous,
+                    "reason": "time" if ambiguous else None,
+                }
+            )
+
+    app.dependency_overrides[get_llm] = BrowserLLM
+    return app
 
 
 def main() -> None:
@@ -65,6 +99,9 @@ def main() -> None:
                 )
         finally:
             fixture_engine.dispose()
+        os.environ["SLOTBOOK_AI_MODEL"] = ""
+        os.environ["SLOTBOOK_AI_API_KEY"] = ""
+        os.environ["SLOTBOOK_REDIS_URL"] = ""
         os.environ["SLOTBOOK_ENVIRONMENT"] = "test"
         os.environ["SLOTBOOK_PUBLIC_ORIGIN"] = "http://127.0.0.1:5173"
         child = subprocess.Popen(
@@ -72,7 +109,8 @@ def main() -> None:
                 sys.executable,
                 "-m",
                 "uvicorn",
-                "app.main:app",
+                "scripts.serve_browser_test_api:create_browser_app",
+                "--factory",
                 "--host",
                 "127.0.0.1",
                 "--port",

@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Literal
 
+import httpx
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi import FastAPI, Response
@@ -16,6 +17,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app import __version__
+from app.ai.client import HTTPModelClient
+from app.ai.router import router as ai_router
 from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import Settings
 from app.core.errors import DomainError, ErrorResponse, install_error_handling
@@ -52,9 +55,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if settings.redis_url
             else None
         )
+        http = httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.ai_timeout_seconds, connect=3),
+            follow_redirects=False,
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
+        )
+        app.state.llm = HTTPModelClient(http, settings) if settings.ai_model else None
         try:
             yield
         finally:
+            await http.aclose()
             if app.state.redis is not None:
                 await app.state.redis.aclose()
             await engine.dispose()
@@ -68,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.include_router(owner_router)
+    app.include_router(ai_router)
     app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(RateLimitMiddleware, settings=settings)
     install_error_handling(app)

@@ -168,3 +168,18 @@ BookingService вызывает [enqueue](../backend/app/notifications/events.py
 публикует UUID через RabbitMQ, [worker](../backend/app/notifications/tasks.py)
 обновляет [доставку](../backend/app/notifications/delivery.py) после HTTP-вызова.
 [Подробности и граница at-least-once](notifications.md).
+
+## Поиск по описанию
+
+[SlotSearch](../frontend/src/components/booking/slot-search.tsx) отправляет только текст
+и показывает интерпретированный диапазон. [Router](../backend/app/ai/router.py) получает
+специалиста, резервирует суточную попытку и вызывает LLMClient. HTTP-адаптер передаёт
+текст и местное текущее время через strict JSON Schema; Pydantic запрещает лишние поля.
+[Service](../backend/app/ai/service.py) проверяет даты/DST, затем использует обычный
+`available_slots` с specialist_id из БД. У модели нет доступа к записи и инструментам.
+
+Выбор результата меняет дату/выбранный ID в Schedule и обновляет query расписания.
+BookingForm и транзакция бронирования остаются обычным путём подтверждения.
+Неверная интерпретация может дать неподходящий диапазон, поэтому UI показывает его
+перед выбором. [Eval и подключение провайдера](ai-search.md): fixtures проверяют
+защитные реакции, live-eval отдельно измеряет ответы настроенной модели.

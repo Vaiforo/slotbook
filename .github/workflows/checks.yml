@@ -30,6 +30,12 @@ jobs:
       - run: cd frontend && npx playwright install --with-deps chromium
       - run: make smoke
       - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: search-previews
+          path: frontend/test-results/ai-search-*/ai-search-*.png
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: browser-results

@@ -84,7 +84,11 @@ async def test_redis_failure_blocks_writes_but_not_liveness():
     app = create_app(Settings(_env_file=None, redis_url="redis://127.0.0.1:1/0"))
     async with app.router.lifespan_context(app):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            for path in ["/api/v1/auth/login", "/api/v1/bookings"]:
+            for path in [
+                "/api/v1/auth/login",
+                "/api/v1/bookings",
+                "/api/v1/specialists/demo/search",
+            ]:
                 response = await client.post(path, json={})
                 assert response.status_code == 503
                 assert response.json()["error"]["code"] == "rate_limit_unavailable"
@@ -95,3 +99,24 @@ async def test_redis_failure_blocks_writes_but_not_liveness():
 def test_production_requires_redis():
     with pytest.raises(ValueError, match="redis_url"):
         Settings(_env_file=None, environment="production", public_origin="https://example.com")
+
+
+@pytest.mark.asyncio
+async def test_ai_limit_is_shared_across_specialists(redis_url):
+    app = create_app(
+        Settings(
+            _env_file=None,
+            redis_url=redis_url,
+            rate_prefix="slotbook-test:" + uuid4().hex,
+            ai_limit=1,
+        )
+    )
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            assert (
+                await client.post("/api/v1/specialists/demo/search", json={})
+            ).status_code == 422
+            response = await client.post("/api/v1/specialists/other/search/", json={})
+            assert response.status_code == 429
+            assert int(response.headers["Retry-After"]) > 0
+            assert (await client.get("/health/live")).status_code == 200
