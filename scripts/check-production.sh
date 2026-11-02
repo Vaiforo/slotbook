@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 export RABBITMQ_PASSWORD="broker-check-$$"
 export SLOTBOOK_EMAIL_URL=http://mail-provider:8001/messages
 export SLOTBOOK_EMAIL_API_KEY=''
+export SLOTBOOK_AI_MODEL='' SLOTBOOK_AI_API_KEY=''
 export SLOTBOOK_NOTIFICATION_MAX_ATTEMPTS=5
 export POSTGRES_PASSWORD="container-test-$(date +%s)-$$"
 export SLOTBOOK_DATABASE_URL="postgresql+psycopg://slotbook:${POSTGRES_PASSWORD}@db:5432/slotbook"
@@ -35,6 +36,7 @@ fi
 base="http://127.0.0.1:$HTTP_PORT"
 "${compose[@]}" exec -T api python -m scripts.seed_demo
 "${compose[@]}" exec -T api python -m scripts.seed_demo
+curl -fsS -H 'Content-Type: application/json' -d '{"text":"завтра"}' "$base/api/v1/specialists/demo/search" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["status"]=="unavailable" and r["items"]==[]'
 "${compose[@]}" stop redis
 python3 scripts/check-redis-outage.py "$base"
 "${compose[@]}" up -d --wait redis

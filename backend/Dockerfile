@@ -14,6 +14,7 @@ COPY --from=build /app/.venv /app/.venv
 COPY app ./app
 COPY migrations ./migrations
 COPY scripts ./scripts
+COPY evals ./evals
 COPY alembic.ini ./
 RUN groupadd --gid 10001 slotbook && useradd --uid 10001 --gid 10001 --no-create-home slotbook \
     && chmod -R a+rX /app

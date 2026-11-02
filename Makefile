@@ -14,7 +14,7 @@ backend:
 frontend:
 	cd frontend && npm run dev
 
-check: api-check version-check
+check: api-check version-check ai-eval
 	cd backend && uv run --frozen ruff check .
 	cd backend && uv run --frozen ruff format --check .
 	cd backend && uv run --frozen mypy app
@@ -60,3 +60,7 @@ api-check:
 .PHONY: version-check
 version-check:
 	cd backend && uv run --frozen python -m scripts.check_version
+
+.PHONY: ai-eval
+ai-eval:
+	cd backend && uv run --frozen python -m scripts.eval_ai

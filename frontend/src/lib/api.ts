@@ -131,3 +131,18 @@ export function cancelBooking(
     headers: { Authorization: `Bearer ${manageToken}` },
   })
 }
+
+export type SearchResult = components['schemas']['SearchResult']
+
+export function searchSlots(
+  slug: string,
+  text: string,
+  signal?: AbortSignal,
+): Promise<SearchResult> {
+  return request(`/specialists/${encodeURIComponent(slug)}/search`, {
+    method: 'POST',
+    signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+}

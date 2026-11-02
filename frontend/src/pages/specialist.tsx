@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import {
   ArrowRight,
@@ -13,6 +13,7 @@ import {
   Info,
 } from 'lucide-react'
 import { ApiError, getAvailableSlots, getSpecialist } from '@/lib/api'
+import { SlotSearch } from '@/components/booking/slot-search'
 import { BookingForm } from '@/components/booking/booking-form'
 import { Confirmation } from '@/components/booking/confirmation'
 import type { BookingCreated } from '@/lib/api'
@@ -85,6 +86,7 @@ export function SpecialistPage() {
 }
 
 function Schedule({ profile }: { profile: PublicSpecialist }) {
+  const queryClient = useQueryClient()
   const today = todayIn(profile.timezone)
   const [date, setDate] = useState(today)
   const [month, setMonth] = useState(today.slice(0, 7))
@@ -134,6 +136,18 @@ function Schedule({ profile }: { profile: PublicSpecialist }) {
       </div>
       <div className="booking-layout">
         <aside className="space-y-5">
+          <SlotSearch
+            profile={profile}
+            disabled={bookingPending}
+            onSelect={(day, id) => {
+              selectDate(day)
+              setSelectedId(id)
+              setUnavailable(false)
+              void queryClient.invalidateQueries({
+                queryKey: queryKeys.slots(profile.slug, dayFilters(day, profile.timezone)),
+              })
+            }}
+          />
           <Card className="profile-card" aria-labelledby="specialist-name">
             <div className="avatar" aria-hidden="true">
               {initials}

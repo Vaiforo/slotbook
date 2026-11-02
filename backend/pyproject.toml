@@ -1,6 +1,6 @@
 [project]
 name = "slotbook-backend"
-version = "0.3.0"
+version = "0.4.0"
 description = "SlotBook appointment booking API"
 requires-python = ">=3.14,<3.15"
 dependencies = [

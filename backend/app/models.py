@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func, text
@@ -142,3 +142,10 @@ class NotificationDelivery(Base):
         ),
         CheckConstraint("attempts >= 0", name="notification_attempts"),
     )
+
+
+class AIUsage(Base):
+    __tablename__ = "ai_usage"
+    day: Mapped[date] = mapped_column(primary_key=True)
+    calls: Mapped[int] = mapped_column()
+    __table_args__ = (CheckConstraint("calls > 0", name="ai_usage_positive_calls"),)

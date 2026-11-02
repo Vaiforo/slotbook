@@ -30,6 +30,10 @@ class RateLimitMiddleware:
             "/api/v1/bookings": self.settings.booking_limit,
         }
         path = scope.get("path", "").rstrip("/")
+        # One per-IP bucket across all specialist search endpoints.
+        if path.startswith("/api/v1/specialists/") and path.endswith("/search"):
+            path = "/api/v1/ai-search"
+            limits[path] = self.settings.ai_limit
         if (
             scope["type"] != "http"
             or scope.get("method") != "POST"
