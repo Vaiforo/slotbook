@@ -14,7 +14,7 @@ frontend package/lock и OpenAPI. `make version-check` проверяет сов
 
   ```bash
   make install db-up
-  SLOTBOOK_TEST_ADMIN_URL=postgresql+psycopg://slotbook:slotbook_local_only@127.0.0.1:5432/slotbook make check
+  SLOTBOOK_TEST_REDIS_URL=redis://127.0.0.1:6379/0 SLOTBOOK_TEST_ADMIN_URL=postgresql+psycopg://slotbook:slotbook_local_only@127.0.0.1:5432/slotbook make check
   cd frontend && npx playwright install chromium && cd ..
   make smoke
   bash scripts/check-production.sh
@@ -94,3 +94,9 @@ manage-ссылки. При потере ответа на POST запись м�
 Уведомления по умолчанию принимает локальный sink. Реальные письма требуют настройки
 внешнего gateway; см. [уведомления](notifications.md). Новая миграция добавляет outbox
 и доставки, не переписывая прежнюю схему. Перед обновлением сохраните дамп PostgreSQL.
+
+AI включается отдельно через model/key/Redis. Релиз 0.4.0 добавляет миграцию ai_usage:
+проверьте миграции и сохраните копию БД. Не очищайте текущий UTC-день счётчика вызовов
+при перезапуске. Перед включением внешнего провайдера выполните [live-eval](ai-search.md),
+проверьте распознавание и задайте денежный бюджет в его аккаунте. Локальные fixtures
+и браузерный адаптер не подтверждают качество живой модели. По умолчанию AI отключён.
