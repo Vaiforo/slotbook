@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '@/lib/api'
 import { currentOwner, loginOwner, sessionKey } from '@/lib/owner-api'
 import { clearOwnerSession, loginDestination } from '@/lib/owner-session'
@@ -25,7 +25,7 @@ export function LoginPage() {
   return (
     <Card className="mx-auto max-w-md space-y-6 p-6 sm:p-8">
       <div className="space-y-3">
-        <p className="eyebrow">Кабинет специалиста</p>
+        <p className="eyebrow">Личный кабинет</p>
         <h1>Войти в SlotBook</h1>
         <p className="text-sm text-muted-foreground">
           {new URLSearchParams(location.search).has('next')
@@ -99,6 +99,12 @@ export function LoginPage() {
           </p>
         )}
       </form>
+      <p>
+        Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+      </p>
+      {new URLSearchParams(location.search).has('passwordChanged') && (
+        <p role="status">Пароль изменён. Войдите с новым паролем.</p>
+      )}
     </Card>
   )
 }

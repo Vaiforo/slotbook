@@ -22,7 +22,11 @@ async def api(database):
     async with app.router.lifespan_context(app):
         async with app.state.session_factory.begin() as db:
             users = [
-                User(normalized_email=f"{uuid4()}@example.com", password_hash=hasher.hash(PASSWORD))
+                User(
+                    role="specialist",
+                    normalized_email=f"{uuid4()}@example.com",
+                    password_hash=hasher.hash(PASSWORD),
+                )
                 for _ in range(2)
             ]
             db.add_all(users)

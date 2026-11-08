@@ -1,24 +1,17 @@
-import secrets
-from datetime import timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
-from sqlalchemy import delete, select
+from fastapi import APIRouter, Query
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.concurrency import run_in_threadpool
 
-from app.core.db import get_session
 from app.core.errors import DomainError, ErrorResponse
-from app.models import Booking, Session, Slot, Specialist, User
+from app.models import Booking, Slot, Specialist
 from app.modules.bookings.repository import database_time, has_confirmed_booking
 from app.modules.bookings.service import details
-from app.modules.owner.dependencies import Owner, check_origin
+from app.modules.owner.dependencies import Owner
 from app.modules.owner.schemas import (
     BookingFilters,
-    Identity,
-    Login,
     OwnerBookings,
     OwnerSlot,
     OwnerSlots,
@@ -26,88 +19,13 @@ from app.modules.owner.schemas import (
     SlotCreate,
     SlotUpdate,
 )
-from app.modules.owner.security import DUMMY_HASH, csrf_for, digest, hasher, verify_password
-from app.modules.specialists.schemas import PublicSpecialist, SlotFilters
+from app.modules.specialists.schemas import SlotFilters
 
 router = APIRouter(
     prefix="/api/v1",
     tags=["owner"],
     responses={code: {"model": ErrorResponse} for code in (401, 403, 409)},
 )
-
-
-@router.post(
-    "/auth/login",
-    status_code=204,
-    operation_id="login",
-    responses={code: {"model": ErrorResponse} for code in (429, 503)},
-)
-async def login(
-    data: Login, request: Request, db: Annotated[AsyncSession, Depends(get_session)]
-) -> Response:
-    check_origin(request)
-    async with db.begin():
-        user = await db.scalar(
-            select(User).where(User.normalized_email == data.email.strip().lower())
-        )
-        encoded = (
-            user.password_hash if user and user.password_hash.startswith("$argon2") else DUMMY_HASH
-        )
-        valid = await run_in_threadpool(verify_password, data.password, encoded)
-        if not valid or user is None or encoded == DUMMY_HASH:
-            raise DomainError(401, "unauthorized", "Invalid email or password")
-        old = request.cookies.get("session")
-        if old:
-            await db.execute(delete(Session).where(Session.token_hash == digest(old)))
-        token = secrets.token_urlsafe(32)
-        db.add(
-            Session(
-                user_id=user.id,
-                token_hash=digest(token),
-                csrf_token_hash=digest(csrf_for(token)),
-                expires_at=await database_time(db) + timedelta(hours=12),
-            )
-        )
-        if hasher.check_needs_rehash(user.password_hash):
-            user.password_hash = await run_in_threadpool(hasher.hash, data.password)
-    response = Response(status_code=204)
-    response.set_cookie(
-        "session",
-        token,
-        httponly=True,
-        secure=request.app.state.settings.public_origin.startswith("https://"),
-        samesite="lax",
-        max_age=43200,
-        path="/",
-    )
-    return response
-
-
-@router.get("/auth/me", response_model=Identity, operation_id="current_owner")
-async def me(owner: Owner) -> Identity:
-    specialist = await owner.db.scalar(
-        select(Specialist).where(Specialist.user_id == owner.user.id)
-    )
-    return Identity(
-        id=owner.user.id,
-        email=owner.user.normalized_email,
-        csrf_token=owner.csrf,
-        specialist=PublicSpecialist.model_validate(specialist) if specialist else None,
-    )
-
-
-@router.post("/auth/logout", status_code=204, operation_id="logout")
-async def logout(owner: Owner, request: Request) -> Response:
-    await owner.db.delete(owner.session)
-    response = Response(status_code=204)
-    response.delete_cookie(
-        "session",
-        path="/",
-        httponly=True,
-        samesite="lax",
-        secure=request.app.state.settings.public_origin.startswith("https://"),
-    )
-    return response
 
 
 async def specialist_id(owner: Owner) -> UUID:

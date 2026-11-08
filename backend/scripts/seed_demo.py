@@ -27,6 +27,7 @@ def seed_demo(url: str, password: str | None = None) -> None:
                 insert(User)
                 .values(
                     id=DEMO_USER,
+                    role="specialist",
                     normalized_email="demo@example.invalid",
                     password_hash="!disabled-demo-owner",
                 )

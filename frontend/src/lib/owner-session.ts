@@ -20,7 +20,9 @@ export function loginDestination(search: string) {
   try {
     const url = new URL(next, 'https://slotbook.invalid')
     return url.origin === 'https://slotbook.invalid' &&
-      ['/dashboard', '/dashboard/schedule'].includes(url.pathname)
+      ['/dashboard', '/dashboard/schedule', '/dashboard/profile', '/dashboard/security'].includes(
+        url.pathname,
+      )
       ? url.pathname + url.search
       : '/dashboard'
   } catch {

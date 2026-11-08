@@ -85,6 +85,7 @@ def main() -> None:
             with Session(fixture_engine) as session, session.begin():
                 other = User(
                     normalized_email="other@example.invalid",
+                    role="specialist",
                     password_hash=hasher.hash("browser-other-password"),
                 )
                 session.add(other)
@@ -116,6 +117,8 @@ def main() -> None:
                 "--port",
                 "8000",
                 "--no-access-log",
+                "--loop",
+                "asyncio:SelectorEventLoop",
             ]
         )
         code = child.wait()

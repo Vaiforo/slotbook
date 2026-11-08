@@ -5,6 +5,10 @@ import { queryClient } from './query-client'
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { RegisterPage } from '@/pages/register'
+import { AccountOverview, AccountProfile, AccountSecurity } from '@/pages/account'
+import { useOutletContext } from 'react-router-dom'
+import type { Identity } from '@/lib/owner-api'
 
 const SpecialistPage = lazy(() =>
   import('@/pages/specialist').then((module) => ({ default: module.SpecialistPage })),
@@ -24,6 +28,16 @@ const DashboardPage = lazy(() =>
 const SchedulePage = lazy(() =>
   import('@/pages/schedule').then((m) => ({ default: m.SchedulePage })),
 )
+
+function DashboardEntry() {
+  const user = useOutletContext<Identity>()
+  return user.role === 'specialist' ? <DashboardPage /> : <AccountOverview />
+}
+
+function SpecialistSchedule() {
+  const user = useOutletContext<Identity>()
+  return user.role === 'specialist' ? <SchedulePage /> : <Navigate to="/dashboard" replace />
+}
 
 function RouteFocus() {
   const { pathname } = useLocation()
@@ -54,7 +68,7 @@ export function App() {
               SlotBook
             </Link>
             <Link to="/dashboard" className="header-caption">
-              Кабинет специалиста
+              Личный кабинет
             </Link>
           </div>
         </header>
@@ -69,9 +83,12 @@ export function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/s/demo" replace />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={<OwnerLayout />}>
-                <Route index element={<DashboardPage />} />
-                <Route path="schedule" element={<SchedulePage />} />
+                <Route index element={<DashboardEntry />} />
+                <Route path="profile" element={<AccountProfile />} />
+                <Route path="security" element={<AccountSecurity />} />
+                <Route path="schedule" element={<SpecialistSchedule />} />
               </Route>
               <Route path="/manage/:id" element={<ManagePage />} />
               <Route path="/s/:slug" element={<SpecialistPage />} />

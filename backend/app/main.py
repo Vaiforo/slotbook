@@ -24,6 +24,7 @@ from app.core.config import Settings
 from app.core.errors import DomainError, ErrorResponse, install_error_handling
 from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimitMiddleware
+from app.modules.auth.router import router as auth_router
 from app.modules.bookings.router import router as bookings_router
 from app.modules.owner.router import router as owner_router
 from app.modules.specialists.router import router
@@ -77,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         responses={code: {"model": ErrorResponse} for code in (404, 405, 422, 500)},
     )
     app.state.settings = settings
+    app.include_router(auth_router)
     app.include_router(owner_router)
     app.include_router(ai_router)
     app.add_middleware(BodyLimitMiddleware)

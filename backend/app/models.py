@@ -15,8 +15,17 @@ class User(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     normalized_email: Mapped[str] = mapped_column(String(320), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), server_default="client")
+    full_name: Mapped[str] = mapped_column(String(200), server_default="")
+    phone: Mapped[str] = mapped_column(String(30), server_default="")
+    timezone: Mapped[str] = mapped_column(String(100), server_default="Asia/Omsk")
+    is_active: Mapped[bool] = mapped_column(server_default=text("true"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
+        CheckConstraint("role IN ('client', 'specialist')", name="user_role"),
         CheckConstraint(
             "normalized_email = lower(trim(normalized_email)) AND normalized_email <> ''",
             name="normalized_email_format",
@@ -37,6 +46,13 @@ class Session(Base):
     )
 
 
+class SpecialistCategory(Base):
+    __tablename__ = "specialist_categories"
+    code: Mapped[str] = mapped_column(String(30), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    sort_order: Mapped[int] = mapped_column()
+
+
 class Specialist(Base):
     __tablename__ = "specialists"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -44,7 +60,27 @@ class Specialist(Base):
     slug: Mapped[str] = mapped_column(String(100), unique=True)
     display_name: Mapped[str] = mapped_column(String(200))
     timezone: Mapped[str] = mapped_column(String(100), server_default="Asia/Omsk")
+    category_code: Mapped[str | None] = mapped_column(ForeignKey("specialist_categories.code"))
+    specialization: Mapped[str] = mapped_column(String(200), server_default="")
+    short_description: Mapped[str] = mapped_column(String(500), server_default="")
+    description: Mapped[str] = mapped_column(String(10000), server_default="")
+    experience_years: Mapped[int | None] = mapped_column()
+    city: Mapped[str] = mapped_column(String(100), server_default="")
+    work_formats: Mapped[str] = mapped_column(String(100), server_default="")
+    workplace: Mapped[str] = mapped_column(String(500), server_default="")
+    service_area: Mapped[str] = mapped_column(String(500), server_default="")
+    publication_status: Mapped[str] = mapped_column(String(20), server_default="draft")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     __table_args__ = (
+        CheckConstraint(
+            "publication_status IN ('draft', 'published')", name="specialist_publication_status"
+        ),
+        CheckConstraint(
+            "experience_years IS NULL OR experience_years BETWEEN 0 AND 80",
+            name="specialist_experience",
+        ),
         CheckConstraint(
             "slug <> '' AND display_name <> '' AND timezone <> ''", name="specialist_nonempty"
         ),
