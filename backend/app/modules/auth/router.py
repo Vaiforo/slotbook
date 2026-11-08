@@ -59,6 +59,7 @@ async def register(
             specialist = None
             if data.role == "specialist":
                 specialist = Specialist(
+                    services=[],
                     user_id=user.id,
                     slug="specialist-" + user.id.hex,
                     display_name=user.full_name,

@@ -28,7 +28,11 @@ async def api(database):
             session.add(owner)
             await session.flush()
             specialist = Specialist(
-                user_id=owner.id, slug=str(uuid4()), display_name="Test", timezone="Asia/Omsk"
+                publication_status="published",
+                user_id=owner.id,
+                slug=str(uuid4()),
+                display_name="Test",
+                timezone="Asia/Omsk",
             )
             session.add(specialist)
             await session.flush()

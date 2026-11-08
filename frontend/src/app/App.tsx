@@ -5,10 +5,16 @@ import { queryClient } from './query-client'
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
+import { CatalogPage } from '@/pages/catalog'
 import { RegisterPage } from '@/pages/register'
 import { AccountOverview, AccountProfile, AccountSecurity } from '@/pages/account'
 import { useOutletContext } from 'react-router-dom'
 import type { Identity } from '@/lib/owner-api'
+
+const ProfessionalPage = lazy(() =>
+  import('@/pages/professional').then((m) => ({ default: m.ProfessionalPage })),
+)
+const ShiftsPage = lazy(() => import('@/pages/shifts').then((m) => ({ default: m.ShiftsPage })))
 
 const SpecialistPage = lazy(() =>
   import('@/pages/specialist').then((module) => ({ default: module.SpecialistPage })),
@@ -39,6 +45,19 @@ function SpecialistSchedule() {
   return user.role === 'specialist' ? <SchedulePage /> : <Navigate to="/dashboard" replace />
 }
 
+function ProfessionalEntry({ shifts = false }: { shifts?: boolean }) {
+  const user = useOutletContext<Identity>()
+  return user.role === 'specialist' ? (
+    shifts ? (
+      <ShiftsPage />
+    ) : (
+      <ProfessionalPage />
+    )
+  ) : (
+    <Navigate to="/dashboard" replace />
+  )
+}
+
 function RouteFocus() {
   const { pathname } = useLocation()
   const previous = useRef(pathname)
@@ -61,7 +80,7 @@ export function App() {
         </a>
         <header className="site-header">
           <div className="site-width flex items-center justify-between gap-3">
-            <Link to="/s/demo" className="brand" aria-label="SlotBook — главная">
+            <Link to="/" className="brand" aria-label="SlotBook — главная">
               <span className="brand-mark">
                 <CalendarDays size={20} />
               </span>
@@ -81,7 +100,7 @@ export function App() {
             }
           >
             <Routes>
-              <Route path="/" element={<Navigate to="/s/demo" replace />} />
+              <Route path="/" element={<CatalogPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={<OwnerLayout />}>
@@ -89,6 +108,8 @@ export function App() {
                 <Route path="profile" element={<AccountProfile />} />
                 <Route path="security" element={<AccountSecurity />} />
                 <Route path="schedule" element={<SpecialistSchedule />} />
+                <Route path="professional" element={<ProfessionalEntry />} />
+                <Route path="shifts" element={<ProfessionalEntry shifts />} />
               </Route>
               <Route path="/manage/:id" element={<ManagePage />} />
               <Route path="/s/:slug" element={<SpecialistPage />} />
@@ -99,7 +120,7 @@ export function App() {
                     title="Страница не найдена"
                     action={
                       <Button asChild>
-                        <Link to="/s/demo">К расписанию</Link>
+                        <Link to="/">В каталог</Link>
                       </Button>
                     }
                   >

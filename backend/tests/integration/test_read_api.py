@@ -89,7 +89,7 @@ async def test_public_profile_and_available_slots(client, data):
     start, ids = data
     profile = await client.get("/api/v1/specialists/demo")
     assert profile.status_code == 200
-    assert profile.json() == {
+    assert {k: profile.json()[k] for k in ("id", "slug", "display_name", "timezone")} == {
         "id": str(DEMO_SPECIALIST),
         "slug": "demo",
         "display_name": "Демо-специалист",

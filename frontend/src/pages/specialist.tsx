@@ -154,7 +154,31 @@ function Schedule({ profile }: { profile: PublicSpecialist }) {
             </div>
             <p className="small-label">Ваш специалист</p>
             <h2 id="specialist-name">{profile.display_name}</h2>
-            <p className="profile-subtitle">Индивидуальная консультация</p>
+            <p className="profile-subtitle">
+              {profile.specialization || 'Индивидуальная консультация'}
+            </p>
+            <p>
+              {profile.city} ·{' '}
+              {profile.work_formats
+                ?.split(',')
+                .map((f) => ({ office: 'Очно', online: 'Онлайн', visit: 'Выезд' })[f])
+                .join(', ')}
+            </p>
+            <p className="whitespace-pre-wrap break-words">{profile.description}</p>
+            {profile.experience_years != null && <p>Опыт: {profile.experience_years} лет</p>}
+            {profile.workplace && <p>Место приёма: {profile.workplace}</p>}
+            {profile.service_area && <p>Территория выезда: {profile.service_area}</p>}
+            {profile.services && profile.services.length > 0 && (
+              <div>
+                <h3>Услуги</h3>
+                {profile.services.map((service, i) => (
+                  <div key={i}>
+                    <h4>{service.name}</h4>
+                    <p>{service.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="profile-facts">
               <div>
                 <Clock3 />

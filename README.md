@@ -2,6 +2,8 @@
 
 [Аккаунты, регистрация и роли](docs/accounts.md)
 
+[Каталог, профили и смены](docs/specialists.md)
+
 Версия `0.4.0`. [Изменения](CHANGELOG.md) · [Демо](docs/demo.md) ·
 [Как устроен код](docs/walkthrough.md) · [Как изучать](docs/learning-path.md) ·
 [Выпуск и резервные копии](docs/release.md)

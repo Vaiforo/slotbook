@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import ExcludeConstraint
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -58,6 +58,9 @@ class Specialist(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), unique=True)
     slug: Mapped[str] = mapped_column(String(100), unique=True)
+    services: Mapped[list[SpecialistService]] = relationship(
+        lazy="selectin", cascade="all, delete-orphan"
+    )
     display_name: Mapped[str] = mapped_column(String(200))
     timezone: Mapped[str] = mapped_column(String(100), server_default="Asia/Omsk")
     category_code: Mapped[str | None] = mapped_column(ForeignKey("specialist_categories.code"))
@@ -74,6 +77,12 @@ class Specialist(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     __table_args__ = (
+        Index(
+            "published_specialists_category_city",
+            "category_code",
+            "city",
+            postgresql_where=text("publication_status = 'published'"),
+        ),
         CheckConstraint(
             "publication_status IN ('draft', 'published')", name="specialist_publication_status"
         ),
@@ -85,6 +94,16 @@ class Specialist(Base):
             "slug <> '' AND display_name <> '' AND timezone <> ''", name="specialist_nonempty"
         ),
     )
+
+
+class SpecialistService(Base):
+    __tablename__ = "specialist_services"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    specialist_id: Mapped[UUID] = mapped_column(
+        ForeignKey("specialists.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(String(2000), server_default="")
 
 
 class Slot(Base):

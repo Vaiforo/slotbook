@@ -101,7 +101,13 @@ export function OwnerLayout() {
         <nav aria-label="Кабинет" className="flex flex-wrap gap-2 border-b border-border pb-4">
           {[
             ['/dashboard', owner.role === 'specialist' ? 'Записи' : 'Обзор'],
-            ...(owner.role === 'specialist' ? [['/dashboard/schedule', 'Расписание']] : []),
+            ...(owner.role === 'specialist'
+              ? [
+                  ['/dashboard/schedule', 'Расписание'],
+                  ['/dashboard/shifts', 'Создать смены'],
+                  ['/dashboard/professional', 'Публичный профиль'],
+                ]
+              : []),
             ['/dashboard/profile', 'Личные данные'],
             ['/dashboard/security', 'Безопасность'],
           ].map(([to, label]) => (

@@ -27,6 +27,8 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.modules.auth.router import router as auth_router
 from app.modules.bookings.router import router as bookings_router
 from app.modules.owner.router import router as owner_router
+from app.modules.specialists.account_router import router as professional_router
+from app.modules.specialists.catalog import router as catalog_router
 from app.modules.specialists.router import router
 
 logger = logging.getLogger(__name__)
@@ -80,6 +82,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.include_router(auth_router)
     app.include_router(owner_router)
+    app.include_router(professional_router)
+    app.include_router(catalog_router)
     app.include_router(ai_router)
     app.add_middleware(BodyLimitMiddleware)
     app.add_middleware(RateLimitMiddleware, settings=settings)

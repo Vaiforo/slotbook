@@ -92,6 +92,7 @@ def main() -> None:
                 session.flush()
                 session.add(
                     Specialist(
+                        publication_status="published",
                         user_id=other.id,
                         slug="other",
                         display_name="Другой специалист",

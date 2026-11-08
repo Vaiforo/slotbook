@@ -1,10 +1,11 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import DomainError
-from app.models import Booking, Slot
+from app.models import Booking, Slot, Specialist, User
 from app.modules.bookings import repository
 from app.modules.bookings.schemas import BookingCreate, BookingCreated, BookingDetails
 from app.modules.bookings.security import new_manage_token, token_hash, valid_token
@@ -44,6 +45,23 @@ class BookingService:
     async def create(self, data: BookingCreate) -> BookingCreated:
         try:
             async with self.session.begin():
+                initial = await repository.get_slot(self.session, data.slot_id)
+                if initial is None:
+                    raise DomainError(404, "not_found", "Not Found")
+                profile = await self.session.scalar(
+                    select(Specialist)
+                    .where(Specialist.id == initial.specialist_id)
+                    .with_for_update()
+                )
+                active = (
+                    await self.session.scalar(
+                        select(User.is_active).where(User.id == profile.user_id)
+                    )
+                    if profile
+                    else False
+                )
+                if not profile or profile.publication_status != "published" or not active:
+                    raise unavailable()
                 slot = await repository.get_slot(self.session, data.slot_id, lock=True)
                 if slot is None:
                     raise DomainError(404, "not_found", "Not Found")

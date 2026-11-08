@@ -29,7 +29,9 @@ router = APIRouter(
 
 
 async def specialist_id(owner: Owner) -> UUID:
-    result = await owner.db.scalar(select(Specialist.id).where(Specialist.user_id == owner.user.id))
+    result = await owner.db.scalar(
+        select(Specialist.id).where(Specialist.user_id == owner.user.id).with_for_update()
+    )
     if result is None:
         raise DomainError(404, "not_found", "Not Found")
     return result

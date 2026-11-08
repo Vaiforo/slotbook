@@ -34,7 +34,11 @@ async def api(database):
             db.add_all(
                 [
                     Specialist(
-                        user_id=user.id, slug=str(uuid4()), display_name="Owner", timezone="UTC"
+                        publication_status="published",
+                        user_id=user.id,
+                        slug=str(uuid4()),
+                        display_name="Owner",
+                        timezone="UTC",
                     )
                     for user in users
                 ]

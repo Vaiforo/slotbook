@@ -46,6 +46,8 @@ test('real profile and slots, date changes, selection and responsive layout', as
 
 test('keyboard selection and date dialog with focus return', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Найдите своего специалиста' })).toBeVisible()
+  await page.getByRole('link', { name: 'Посмотреть профиль' }).first().click()
   await expect(page).toHaveURL(/\/s\/demo$/)
   await page.getByRole('button', { name: 'Завтра', exact: true }).focus()
   await page.keyboard.press('Enter')
@@ -102,8 +104,8 @@ test('unknown specialist is a real 404; unknown route is usable', async ({ page 
   expect(count).toBe(1)
   await page.goto('/missing-page')
   await expect(page.getByText('Страница не найдена', { exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'К расписанию' }).click()
-  await expect(page.getByRole('heading', { name: 'Демо-специалист' })).toBeVisible()
+  await page.getByRole('link', { name: 'В каталог' }).click()
+  await expect(page.getByRole('heading', { name: 'Найдите своего специалиста' })).toBeVisible()
 })
 
 test('a new date never displays the old slots while waiting', async ({ page }) => {

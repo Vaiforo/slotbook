@@ -44,6 +44,7 @@ def seed_demo(url: str, password: str | None = None) -> None:
                 insert(Specialist)
                 .values(
                     id=DEMO_SPECIALIST,
+                    publication_status="published",
                     user_id=DEMO_USER,
                     slug="demo",
                     display_name="Демо-специалист",
