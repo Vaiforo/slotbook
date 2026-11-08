@@ -879,7 +879,7 @@
         "title": "ProfessionalDetails",
         "type": "object"
       },
-      "ProfessionalProfile": {
+      "ProfessionalSave": {
         "additionalProperties": false,
         "properties": {
           "category_code": {
@@ -936,6 +936,21 @@
             "title": "Service Area",
             "type": "string"
           },
+          "services": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ServiceInput"
+                },
+                "maxItems": 30,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Services"
+          },
           "short_description": {
             "default": "",
             "maxLength": 500,
@@ -969,7 +984,7 @@
           "display_name",
           "timezone"
         ],
-        "title": "ProfessionalProfile",
+        "title": "ProfessionalSave",
         "type": "object"
       },
       "ProfileUpdate": {
@@ -3307,7 +3322,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProfessionalProfile"
+                "$ref": "#/components/schemas/ProfessionalSave"
               }
             }
           },

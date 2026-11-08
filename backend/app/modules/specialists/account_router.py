@@ -12,7 +12,7 @@ from app.modules.bookings.repository import database_time
 from app.modules.specialists.account_schemas import (
     BatchResult,
     ProfessionalDetails,
-    ProfessionalProfile,
+    ProfessionalSave,
     ServicesUpdate,
     ShiftBatch,
 )
@@ -64,7 +64,7 @@ async def get_profile(owner: SpecialistUser) -> Specialist:
 
 
 @router.patch("", response_model=ProfessionalDetails)
-async def edit_profile(data: ProfessionalProfile, owner: SpecialistUser) -> Specialist:
+async def edit_profile(data: ProfessionalSave, owner: SpecialistUser) -> Specialist:
     profile = await own_profile(owner)
     if data.timezone != profile.timezone and await owner.db.scalar(
         select(Slot.id)
@@ -72,8 +72,10 @@ async def edit_profile(data: ProfessionalProfile, owner: SpecialistUser) -> Spec
         .limit(1)
     ):
         raise DomainError(409, "timezone_has_slots", "Cannot change timezone with future slots")
-    for name, value in data.model_dump().items():
+    for name, value in data.model_dump(exclude={"services"}).items():
         setattr(profile, name, value)
+    if data.services is not None:
+        profile.services = [SpecialistService(**service.model_dump()) for service in data.services]
     if profile.publication_status == "published" and publication_errors(profile):
         raise DomainError(409, "profile_incomplete", "Unpublish before removing required fields")
     await owner.db.flush()

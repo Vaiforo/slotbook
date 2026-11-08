@@ -1,3 +1,4 @@
+import { invalidateAvailability } from '@/lib/availability'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { request, ApiError } from '@/lib/api'
@@ -50,8 +51,7 @@ export function ShiftsPage() {
           : `Будет создано интервалов: ${result.count}`,
       )
       if (create) {
-        void client.invalidateQueries({ queryKey: ['owner', owner.id] })
-        void client.invalidateQueries({ queryKey: ['catalog'] })
+        void invalidateAvailability(client, owner.id, owner.specialist.slug)
       }
     } catch (error) {
       setPreview(null)

@@ -47,7 +47,7 @@ export function OwnerLayout() {
       />
     )
   if (session.isPending) return <p role="status">Проверяем вход…</p>
-  if (session.isError)
+  if (session.isError && !session.data)
     return (
       <EmptyState
         title="Не удалось проверить вход"
@@ -56,9 +56,15 @@ export function OwnerLayout() {
         Проверьте соединение. Данные кабинета появятся после проверки сессии.
       </EmptyState>
     )
-  const owner = session.data
+  const owner = session.data!
   return (
     <>
+      {session.isError && (
+        <p role="alert">
+          Не удалось обновить сессию. Введённые данные сохранены на экране; повторите попытку при
+          восстановлении связи.
+        </p>
+      )}
       {session.isFetching && <p role="status">Проверяем вход…</p>}
       <div
         className="space-y-6"

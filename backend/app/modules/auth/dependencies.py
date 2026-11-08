@@ -38,8 +38,22 @@ async def user_context(
         raise DomainError(401, "unauthorized", "Authentication required")
     # Own the transaction before the first SELECT, including all downstream writes.
     async with db.begin():
+        # Discover the user without locking a session. All authenticated writes
+        # lock user -> session, including password changes deleting other sessions.
+        session = await db.scalar(select(Session).where(Session.token_hash == digest(token)))
+        if session is None:
+            raise DomainError(401, "unauthorized", "Authentication required")
+        user = await db.scalar(
+            select(User)
+            .where(User.id == session.user_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
         session = await db.scalar(
-            select(Session).where(Session.token_hash == digest(token)).with_for_update()
+            select(Session)
+            .where(Session.token_hash == digest(token))
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
         if session is None or session.expires_at <= await database_time(db):
             raise DomainError(401, "unauthorized", "Authentication required")
@@ -49,7 +63,6 @@ async def user_context(
             supplied = csrf_header or ""
             if not secrets.compare_digest(digest(supplied), session.csrf_token_hash):
                 raise DomainError(403, "forbidden", "Invalid CSRF token")
-        user = await db.get(User, session.user_id)
         if user is None or not user.is_active:
             raise DomainError(401, "unauthorized", "Authentication required")
         yield UserContext(db, session, user, csrf)

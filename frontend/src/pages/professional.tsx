@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 
 type Profile = components['schemas']['ProfessionalDetails']
-type ProfileInput = components['schemas']['ProfessionalProfile']
+type ProfileInput = Omit<components['schemas']['ProfessionalSave'], 'services'>
 const labels: Record<string, string> = {
   display_name: 'Публичное имя',
   specialization: 'Специализация',
@@ -28,14 +28,21 @@ export function ProfessionalPage() {
     queryFn: ({ signal }) => request<Profile>('/me/specialist', { signal }),
   })
   if (profile.isPending) return <p role="status">Загружаем профиль…</p>
-  if (profile.isError)
+  if (profile.isError && !profile.data)
     return (
       <div role="alert">
         Не удалось загрузить профиль.{' '}
         <Button onClick={() => void profile.refetch()}>Повторить</Button>
       </div>
     )
-  return <ProfessionalForm key={profile.data.slug} initial={profile.data} />
+  return (
+    <>
+      {profile.isError && (
+        <p role="alert">Не удалось обновить профиль. Черновик сохранён на экране.</p>
+      )}
+      <ProfessionalForm key={profile.data!.slug} initial={profile.data!} />
+    </>
+  )
 }
 
 function ProfessionalForm({ initial }: { initial: Profile }) {
@@ -57,11 +64,10 @@ function ProfessionalForm({ initial }: { initial: Profile }) {
         headers: { 'Content-Type': 'application/json' },
       }
       if (action === 'save') {
-        await request('/me/specialist', { ...options, method: 'PATCH', body: JSON.stringify(data) })
-        return request<Profile>('/me/specialist/services', {
+        return request<Profile>('/me/specialist', {
           ...options,
-          method: 'PUT',
-          body: JSON.stringify({ services }),
+          method: 'PATCH',
+          body: JSON.stringify({ ...data, services }),
         })
       }
       return request<Profile>(`/me/specialist/${action}`, { ...options, method: 'POST' })

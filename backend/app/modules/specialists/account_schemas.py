@@ -37,6 +37,10 @@ class ProfessionalProfile(BaseModel):
         return self
 
 
+class ProfessionalSave(ProfessionalProfile):
+    services: list[ServiceInput] | None = Field(default=None, max_length=30)
+
+
 class ProfessionalDetails(ProfessionalProfile):
     slug: str
     publication_status: Literal["draft", "published"]

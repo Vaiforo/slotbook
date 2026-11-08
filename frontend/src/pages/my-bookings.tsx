@@ -7,7 +7,7 @@ import type { components } from '@/generated/api-types'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { dayFilters } from '@/lib/dates'
+import { clientBookingRange } from '@/lib/client-booking-range'
 
 type Page = components['schemas']['ClientBookingPage']
 export function MyBookingsPage({ overview = false }: { overview?: boolean }) {
@@ -20,12 +20,14 @@ export function MyBookingsPage({ overview = false }: { overview?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const query = new URLSearchParams({ view, limit: overview ? '1' : '20', offset: String(offset) })
-  if (from) query.set('from', dayFilters(from, user.timezone).from)
-  if (to) query.set('to', dayFilters(to, user.timezone).to)
+  const range = clientBookingRange(from, to, user.timezone)
+  if (range.from) query.set('from', range.from)
+  if (range.to) query.set('to', range.to)
   const bookings = useQuery({
     queryKey: ['owner', user.id, 'client-bookings', query.toString()],
     queryFn: ({ signal }) => request<Page>(`/me/bookings?${query}`, { signal }),
     gcTime: 0,
+    enabled: !range.error,
   })
   return (
     <section className="space-y-5">
@@ -60,6 +62,8 @@ export function MyBookingsPage({ overview = false }: { overview?: boolean }) {
             С даты
             <Input
               type="date"
+              min="1900-01-01"
+              max="9998-12-31"
               value={from}
               onChange={(e) => {
                 setFrom(e.target.value)
@@ -71,6 +75,8 @@ export function MyBookingsPage({ overview = false }: { overview?: boolean }) {
             По дату
             <Input
               type="date"
+              min="1900-01-01"
+              max="9998-12-31"
               value={to}
               onChange={(e) => {
                 setTo(e.target.value)
@@ -80,86 +86,91 @@ export function MyBookingsPage({ overview = false }: { overview?: boolean }) {
           </label>
         </Card>
       )}
-      {bookings.isPending && <p role="status">Загружаем записи…</p>}
-      {bookings.isError && (
+      {range.error && <p role="alert">{range.error}</p>}
+      {!range.error && bookings.isPending && <p role="status">Загружаем записи…</p>}
+      {!range.error && bookings.isError && (
         <p role="alert">
           Не удалось загрузить записи.{' '}
           <Button onClick={() => void bookings.refetch()}>Повторить</Button>
         </p>
       )}
-      {bookings.data?.items.length === 0 && <p>Записей пока нет.</p>}
-      {bookings.data?.items.map((booking) => (
-        <Card key={booking.id} className="space-y-3 break-words p-5">
-          <h3 className="text-xl font-semibold">{booking.specialist_name}</h3>
-          <p>{booking.specialization}</p>
-          <p>
-            {new Intl.DateTimeFormat('ru', {
-              dateStyle: 'long',
-              timeStyle: 'short',
-              timeZone: user.timezone,
-            }).format(new Date(booking.starts_at))}{' '}
-            —{' '}
-            {new Intl.DateTimeFormat('ru', { timeStyle: 'short', timeZone: user.timezone }).format(
-              new Date(booking.ends_at),
-            )}{' '}
-            ({user.timezone})
-          </p>
-          <p>
-            Статус:{' '}
-            {booking.status === 'cancelled'
-              ? 'Отменена'
-              : new Date(booking.ends_at) <= new Date()
-                ? 'Прошедшая'
-                : 'Подтверждена'}
-          </p>
-          <p>
-            {booking.workplace || booking.service_area || 'Место и формат уточняются у специалиста'}
-          </p>
-          <p>
-            Формат:{' '}
-            {booking.work_formats
-              .split(',')
-              .map((f) => ({ office: 'Очно', online: 'Онлайн', visit: 'Выезд' })[f])
-              .join(', ')}
-          </p>
-          <p>
-            {booking.client_name} · {booking.client_email}
-          </p>
-          <Link to={`/s/${booking.specialist_slug}`}>Профиль специалиста</Link>
-          {booking.status === 'confirmed' && new Date(booking.starts_at) > new Date() && (
-            <div>
-              <Button
-                variant="outline"
-                disabled={busy !== null}
-                onClick={async () => {
-                  if (!window.confirm('Отменить эту запись?')) return
-                  setBusy(booking.id)
-                  setMessage('')
-                  try {
-                    await request(`/me/bookings/${booking.id}/cancel`, {
-                      method: 'POST',
-                      csrfToken: user.csrf_token,
-                      signal: AbortSignal.timeout(15000),
-                    })
-                    await cache.invalidateQueries({
-                      queryKey: ['owner', user.id, 'client-bookings'],
-                    })
-                    void cache.invalidateQueries({ queryKey: ['specialists'] })
-                    void cache.invalidateQueries({ queryKey: ['catalog'] })
-                    setMessage('Запись отменена')
-                  } catch {
-                    setMessage('Не удалось отменить запись. Обновите список и повторите попытку.')
-                  } finally {
-                    setBusy(null)
-                  }
-                }}
-              >
-                Отменить запись
-              </Button>
-            </div>
-          )}
-        </Card>
-      ))}
+      {!range.error && bookings.data?.items.length === 0 && <p>Записей пока нет.</p>}
+      {!range.error &&
+        bookings.data?.items.map((booking) => (
+          <Card key={booking.id} className="space-y-3 break-words p-5">
+            <h3 className="text-xl font-semibold">{booking.specialist_name}</h3>
+            <p>{booking.specialization}</p>
+            <p>
+              {new Intl.DateTimeFormat('ru', {
+                dateStyle: 'long',
+                timeStyle: 'short',
+                timeZone: user.timezone,
+              }).format(new Date(booking.starts_at))}{' '}
+              —{' '}
+              {new Intl.DateTimeFormat('ru', {
+                timeStyle: 'short',
+                timeZone: user.timezone,
+              }).format(new Date(booking.ends_at))}{' '}
+              ({user.timezone})
+            </p>
+            <p>
+              Статус:{' '}
+              {booking.status === 'cancelled'
+                ? 'Отменена'
+                : new Date(booking.ends_at) <= new Date()
+                  ? 'Прошедшая'
+                  : 'Подтверждена'}
+            </p>
+            <p>
+              {booking.workplace ||
+                booking.service_area ||
+                'Место и формат уточняются у специалиста'}
+            </p>
+            <p>
+              Формат:{' '}
+              {booking.work_formats
+                .split(',')
+                .map((f) => ({ office: 'Очно', online: 'Онлайн', visit: 'Выезд' })[f])
+                .join(', ')}
+            </p>
+            <p>
+              {booking.client_name} · {booking.client_email}
+            </p>
+            <Link to={`/s/${booking.specialist_slug}`}>Профиль специалиста</Link>
+            {booking.status === 'confirmed' && new Date(booking.starts_at) > new Date() && (
+              <div>
+                <Button
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={async () => {
+                    if (!window.confirm('Отменить эту запись?')) return
+                    setBusy(booking.id)
+                    setMessage('')
+                    try {
+                      await request(`/me/bookings/${booking.id}/cancel`, {
+                        method: 'POST',
+                        csrfToken: user.csrf_token,
+                        signal: AbortSignal.timeout(15000),
+                      })
+                      await cache.invalidateQueries({
+                        queryKey: ['owner', user.id, 'client-bookings'],
+                      })
+                      void cache.invalidateQueries({ queryKey: ['specialists'] })
+                      void cache.invalidateQueries({ queryKey: ['catalog'] })
+                      setMessage('Запись отменена')
+                    } catch {
+                      setMessage('Не удалось отменить запись. Обновите список и повторите попытку.')
+                    } finally {
+                      setBusy(null)
+                    }
+                  }}
+                >
+                  Отменить запись
+                </Button>
+              </div>
+            )}
+          </Card>
+        ))}
       <p role="status">{message}</p>
       {!overview && (
         <div className="flex gap-3">
@@ -172,7 +183,7 @@ export function MyBookingsPage({ overview = false }: { overview?: boolean }) {
           </Button>
           <Button
             variant="outline"
-            disabled={!bookings.data || offset + 20 >= bookings.data.total}
+            disabled={!!range.error || !bookings.data || offset + 20 >= bookings.data.total}
             onClick={() => setOffset(offset + 20)}
           >
             Далее

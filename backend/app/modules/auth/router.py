@@ -160,6 +160,16 @@ async def login(
         valid = await run_in_threadpool(verify_password, data.password, encoded)
         if not valid or user is None or not user.is_active or encoded == DUMMY_HASH:
             raise DomainError(401, "unauthorized", "Invalid email or password")
+        # A password change may have committed while Argon2 was running.
+        # Serialize session creation with password changes and recheck the hash.
+        user = await db.scalar(
+            select(User)
+            .where(User.id == user.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if user is None or not user.is_active or user.password_hash != encoded:
+            raise DomainError(401, "unauthorized", "Invalid email or password")
         old = request.cookies.get("session")
         if old:
             await db.execute(delete(Session).where(Session.token_hash == digest(old)))

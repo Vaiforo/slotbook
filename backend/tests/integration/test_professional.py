@@ -2,7 +2,42 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from client_auth import book_as_client
+from sqlalchemy.ext.asyncio import AsyncSession
 from test_accounts import ORIGIN, account_api, registration  # noqa: F401
+
+
+@pytest.mark.asyncio
+async def test_profile_and_services_roll_back_together(account_api, monkeypatch):  # noqa: F811
+    _, client = account_api
+    registered = await client.post(
+        "/api/v1/auth/register", json=registration("specialist"), headers={"Origin": ORIGIN}
+    )
+    headers = {"Origin": ORIGIN, "X-CSRF-Token": registered.json()["csrf_token"]}
+    initial = {"display_name": "Original", "timezone": "UTC", "services": [{"name": "Old service"}]}
+    assert (
+        await client.patch("/api/v1/me/specialist", json=initial, headers=headers)
+    ).status_code == 200
+    invalid = {**initial, "display_name": "Changed", "services": [{"name": ""}]}
+    assert (
+        await client.patch("/api/v1/me/specialist", json=invalid, headers=headers)
+    ).status_code == 422
+    original_flush = AsyncSession.flush
+
+    async def failing_flush(self, *args, **kwargs):
+        await original_flush(self, *args, **kwargs)
+        raise RuntimeError("Failure after writing profile and services")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(AsyncSession, "flush", failing_flush)
+        failed = await client.patch(
+            "/api/v1/me/specialist",
+            json={**initial, "display_name": "Changed", "services": [{"name": "New service"}]},
+            headers=headers,
+        )
+        assert failed.status_code == 500
+    saved = (await client.get("/api/v1/me/specialist")).json()
+    assert saved["display_name"] == "Original"
+    assert saved["services"][0]["name"] == "Old service"
 
 
 @pytest.mark.asyncio

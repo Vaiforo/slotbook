@@ -904,8 +904,8 @@ export interface components {
              */
             workplace: string;
         };
-        /** ProfessionalProfile */
-        ProfessionalProfile: {
+        /** ProfessionalSave */
+        ProfessionalSave: {
             /** Category Code */
             category_code?: ("medicine" | "plumbing" | "law" | "delivery") | null;
             /**
@@ -927,6 +927,8 @@ export interface components {
              * @default
              */
             service_area: string;
+            /** Services */
+            services?: components["schemas"]["ServiceInput"][] | null;
             /**
              * Short Description
              * @default
@@ -2504,7 +2506,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProfessionalProfile"];
+                "application/json": components["schemas"]["ProfessionalSave"];
             };
         };
         responses: {
