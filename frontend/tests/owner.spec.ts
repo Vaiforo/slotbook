@@ -1,3 +1,4 @@
+import { authenticatePage } from './helpers/client'
 import { expect, test } from '@playwright/test'
 import { login } from './helpers/owner'
 import { addDays, todayIn } from '../src/lib/dates'
@@ -54,7 +55,8 @@ test('owner publishes, client books, owner sees booking and closes free time', a
     locale: 'ru-RU',
   })
   const guest = await guestContext.newPage()
-  await guest.goto('/s/demo')
+  await authenticatePage(guest, 'Клиент кабинета', 'dashboard-client@example.com')
+  await guest.goto('/s/fixture')
   await guest.getByRole('button', { name: 'Перейти к дате', exact: true }).click()
   await guest.getByLabel('Дата встречи').fill(date())
   await guest.getByRole('button', { name: 'Показать дату' }).click()
@@ -62,8 +64,7 @@ test('owner publishes, client books, owner sees booking and closes free time', a
     .getByRole('group', { name: 'Доступное время', exact: true })
     .getByRole('button', { name: '13:00', exact: true })
     .click()
-  await guest.getByLabel('Ваше имя').fill('Клиент кабинета')
-  await guest.getByLabel('Email', { exact: true }).fill('dashboard-client@example.com')
+
   await guest.getByRole('button', { name: 'Подтвердить запись' }).click()
   await expect(guest.getByRole('heading', { name: 'Вы записаны' })).toBeVisible()
   await guestContext.close()
@@ -97,6 +98,7 @@ test('owner publishes, client books, owner sees booking and closes free time', a
   await expect(page.getByRole('heading', { name: 'Войти в SlotBook' })).toBeVisible()
   await expect(page.getByText('dashboard-client@example.com')).toHaveCount(0)
   await login(page, 'other@example.invalid', 'browser-other-password')
+  await page.getByRole('link', { name: 'Записи', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Другой специалист', exact: true })).toBeVisible()
   await expect(page.getByText('Записей пока нет', { exact: true })).toBeVisible()
   await expect(page.getByText('dashboard-client@example.com')).toHaveCount(0)
@@ -113,7 +115,7 @@ test('invalid login, expired session and network errors preserve the return rout
 }) => {
   const selectedDate = addDays(todayIn('Asia/Omsk'), 1)
   await page.goto(`/dashboard/schedule?date=${selectedDate}`)
-  await page.getByLabel('Email', { exact: true }).fill('demo@example.invalid')
+  await page.getByLabel('Email', { exact: true }).fill('fixture@example.invalid')
   await page.getByLabel('Пароль').fill('wrong-password')
   await page.getByRole('button', { name: 'Войти', exact: true }).click()
   await expect(page.getByText('Неверный email или пароль.', { exact: true })).toBeVisible()

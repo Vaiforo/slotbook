@@ -26,7 +26,7 @@
 ### Публичный профиль
 
 ```http
-GET /api/v1/specialists/demo
+GET /api/v1/specialists/anna-belova
 ```
 
 200, пример структуры (UUID демонстрационный):
@@ -34,8 +34,8 @@ GET /api/v1/specialists/demo
 ```json
 {
   "id": "ab5b0099-ecbd-4a31-a346-001afc9a3fbd",
-  "slug": "demo",
-  "display_name": "Демо-специалист",
+  "slug": "anna-belova",
+  "display_name": "Анна Белова",
   "timezone": "Asia/Omsk"
 }
 ```
@@ -46,7 +46,7 @@ GET /api/v1/specialists/demo
 ### Доступные слоты
 
 ```http
-GET /api/v1/specialists/demo/slots?from=2030-01-01T00:00:00%2B06:00&to=2030-01-02T00:00:00%2B06:00&limit=100&offset=0
+GET /api/v1/specialists/anna-belova/slots?from=2030-01-01T00:00:00%2B06:00&to=2030-01-02T00:00:00%2B06:00&limit=100&offset=0
 ```
 
 Пример параметров демонстрирует формат; реальные даты seed вычисляются относительно
@@ -228,7 +228,7 @@ Content-Type: application/json
 ### Список записей владельца
 
 ```http
-GET /api/v1/me/bookings?from=2030-01-01T00:00:00Z&to=2030-01-02T00:00:00Z&status=confirmed&limit=100&offset=0
+GET /api/v1/me/specialist/bookings?from=2030-01-01T00:00:00Z&to=2030-01-02T00:00:00Z&status=confirmed&limit=100&offset=0
 Cookie: session=<opaque-token>
 ```
 
@@ -282,3 +282,11 @@ Retry-After: 5; операции до БД не доходят. Эти отве�
 
 Отказ провайдера, неверный ответ, таймаут, отсутствие настроек и суточный лимит дают
 unavailable и рекомендацию календаря. [Настройки и ограничения](ai-search.md).
+
+
+Новые брони требуют сессии роли client, Origin и X-CSRF-Token. Контакты берутся
+из аккаунта; достаточно передать slot_id. GET /api/v1/me/bookings возвращает
+собственные записи клиента (view=upcoming/past/cancelled), а POST
+/api/v1/me/bookings/{id}/cancel отменяет собственную запись до начала.
+Записи специалиста перенесены на /api/v1/me/specialist/bookings.
+Полный актуальный контракт: openapi.json.

@@ -5,6 +5,7 @@ from datetime import timedelta
 import httpx
 import pytest
 import pytest_asyncio
+from client_auth import authenticate_client
 from sqlalchemy import delete, func, select
 from test_read_api import data  # noqa: F401
 
@@ -50,6 +51,7 @@ async def api(database, data):  # noqa: F811
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
+            await authenticate_client(client)
             yield app, client
 
 
@@ -62,7 +64,7 @@ async def test_search_uses_real_availability_and_never_books(api, data, caplog):
     async with app.state.session_factory() as session:
         before = await session.scalar(select(func.count()).select_from(Booking))
     response = await client.post(
-        "/api/v1/specialists/demo/search", json={"text": "завтра с 10 до 12"}
+        "/api/v1/specialists/fixture/search", json={"text": "завтра с 10 до 12"}
     )
     assert response.status_code == 200
     body = response.json()
@@ -81,7 +83,7 @@ async def test_search_uses_real_availability_and_never_books(api, data, caplog):
     booked = await client.post("/api/v1/bookings", json=payload)
     assert booked.status_code == 201
     assert (await client.post("/api/v1/bookings", json=payload)).status_code == 409
-    again = await client.post("/api/v1/specialists/demo/search", json={"text": "завтра"})
+    again = await client.post("/api/v1/specialists/fixture/search", json={"text": "завтра"})
     assert [slot["id"] for slot in again.json()["items"]] == [str(ids[3])]
     # Restore the fixture's availability for independent tests.
     assert (
@@ -95,7 +97,7 @@ async def test_search_uses_real_availability_and_never_books(api, data, caplog):
 @pytest.mark.asyncio
 async def test_empty_clarification_disabled_and_invalid_provider(api, data):  # noqa: F811
     app, client = api
-    path = "/api/v1/specialists/demo/search"
+    path = "/api/v1/specialists/fixture/search"
     assert (await client.post(path, json={"text": "завтра"})).json()["status"] == "unavailable"
     cases = [
         (preference(data[0].date() + timedelta(days=1)), "empty"),
@@ -120,7 +122,9 @@ async def test_invalid_input_and_missing_specialist_do_not_spend_budget(api, dat
     model = Model(preference(data[0].date()))
     app.dependency_overrides[get_llm] = lambda: model
     for body in [{"text": " "}, {"text": "a" * 501}, {"text": "ok", "specialist_id": "other"}]:
-        assert (await client.post("/api/v1/specialists/demo/search", json=body)).status_code == 422
+        assert (
+            await client.post("/api/v1/specialists/fixture/search", json=body)
+        ).status_code == 422
     assert (
         await client.post("/api/v1/specialists/missing/search", json={"text": "завтра"})
     ).status_code == 404
@@ -146,7 +150,7 @@ async def test_durable_budget_is_atomic_and_failures_consume_it(api):
     app.dependency_overrides[get_llm] = lambda: model
     for _ in range(2):
         assert (
-            await client.post("/api/v1/specialists/demo/search", json={"text": "завтра"})
+            await client.post("/api/v1/specialists/fixture/search", json={"text": "завтра"})
         ).json()["status"] == "unavailable"
     assert len(model.calls) == 1
     # A fresh API process sees the committed count too.

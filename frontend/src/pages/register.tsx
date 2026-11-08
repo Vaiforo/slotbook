@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { request, ApiError } from '@/lib/api'
 import { sessionKey, type Identity } from '@/lib/owner-api'
-import { clearOwnerSession } from '@/lib/owner-session'
+import { clearOwnerSession, loginDestination } from '@/lib/owner-session'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -33,6 +33,7 @@ export function RegisterPage() {
   const [step, setStep] = useState(1)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const location = useLocation()
   const client = useQueryClient()
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -80,7 +81,10 @@ export function RegisterPage() {
               })
               client.setQueryData(sessionKey, identity)
               form.reset()
-              navigate('/dashboard', { replace: true })
+              navigate(
+                identity.role === 'client' ? loginDestination(location.search) : '/dashboard',
+                { replace: true },
+              )
             } catch (reason) {
               setError(
                 reason instanceof ApiError && reason.code === 'email_exists'
@@ -146,7 +150,7 @@ export function RegisterPage() {
         </form>
       )}
       <p>
-        Уже есть аккаунт? <Link to="/login">Войти</Link>
+        Уже есть аккаунт? <Link to={`/login${location.search}`}>Войти</Link>
       </p>
     </Card>
   )

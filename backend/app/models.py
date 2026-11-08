@@ -135,6 +135,9 @@ class Booking(Base):
     __tablename__ = "bookings"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     slot_id: Mapped[UUID] = mapped_column(ForeignKey("slots.id", ondelete="RESTRICT"))
+    client_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
     client_name: Mapped[str] = mapped_column(String(200))
     client_email: Mapped[str] = mapped_column(String(320))
     status: Mapped[str] = mapped_column(String(10), server_default="confirmed")

@@ -100,7 +100,8 @@ export function OwnerLayout() {
         )}
         <nav aria-label="Кабинет" className="flex flex-wrap gap-2 border-b border-border pb-4">
           {[
-            ['/dashboard', owner.role === 'specialist' ? 'Записи' : 'Обзор'],
+            ['/dashboard', 'Обзор'],
+            ['/dashboard/bookings', owner.role === 'specialist' ? 'Записи' : 'Мои записи'],
             ...(owner.role === 'specialist'
               ? [
                   ['/dashboard/schedule', 'Расписание'],

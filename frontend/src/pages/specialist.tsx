@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   CalendarDays,
@@ -88,12 +88,23 @@ export function SpecialistPage() {
 function Schedule({ profile }: { profile: PublicSpecialist }) {
   const queryClient = useQueryClient()
   const today = todayIn(profile.timezone)
-  const [date, setDate] = useState(today)
-  const [month, setMonth] = useState(today.slice(0, 7))
+  const [params] = useSearchParams()
+  let initialDate = today
+  try {
+    const requested = params.get('date')
+    if (requested) {
+      dayFilters(requested, profile.timezone)
+      initialDate = requested
+    }
+  } catch {
+    /* Invalid return date falls back to today. */
+  }
+  const [date, setDate] = useState(initialDate)
+  const [month, setMonth] = useState(initialDate.slice(0, 7))
   const [bookingPending, setBookingPending] = useState(false)
   const [booking, setBooking] = useState<BookingCreated | null>(null)
   const [unavailable, setUnavailable] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(params.get('slot'))
   const filters = dayFilters(date, profile.timezone)
   const slots = useQuery({
     queryKey: queryKeys.slots(profile.slug, filters),
@@ -387,7 +398,12 @@ function Schedule({ profile }: { profile: PublicSpecialist }) {
                 </p>
               </div>
             </div>
-            {unavailable && (
+            {(unavailable ||
+              (params.has('slot') &&
+                selectedId &&
+                slots.data &&
+                !slots.isFetching &&
+                !selected)) && (
               <p role="alert" className="px-6 py-4 text-sm text-red-700">
                 Это время уже недоступно. Расписание обновлено — выберите другое время.
               </p>
@@ -398,6 +414,7 @@ function Schedule({ profile }: { profile: PublicSpecialist }) {
                 <BookingForm
                   key={selected.id}
                   slotId={selected.id}
+                  date={date}
                   onPendingChange={setBookingPending}
                   onBooked={setBooking}
                   onUnavailable={() => {

@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from client_auth import book_as_client
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select, text, update
 
@@ -132,8 +133,8 @@ async def test_slots_ownership_overlap_and_booking_list(api):
             "/api/v1/slots", headers=headers, json={**data, "specialist_id": str(uuid4())}
         )
     ).status_code == 422
-    booked = await client.post(
-        "/api/v1/bookings",
+    booked = await book_as_client(
+        client,
         json={
             "slot_id": slot["id"],
             "client_name": "Private",
@@ -145,12 +146,12 @@ async def test_slots_ownership_overlap_and_booking_list(api):
         await client.patch(f"/api/v1/slots/{slot['id']}", headers=headers, json={"state": "closed"})
     ).status_code == 409
     params = {"from": data["starts_at"], "to": data["ends_at"], "status": "confirmed"}
-    listing = await client.get("/api/v1/me/bookings", params=params)
+    listing = await client.get("/api/v1/me/specialist/bookings", params=params)
     assert len(listing.json()["items"]) == 1
     assert "manage_token" not in listing.text
     assert listing.headers["cache-control"] == "no-store"
     other = await login(client, users[1])
-    assert (await client.get("/api/v1/me/bookings", params=params)).json()["items"] == []
+    assert (await client.get("/api/v1/me/specialist/bookings", params=params)).json()["items"] == []
     assert (
         await client.patch(f"/api/v1/slots/{slot['id']}", headers=other, json={"state": "closed"})
     ).status_code == 404
@@ -183,8 +184,8 @@ async def test_close_and_book_are_serialized(api):
             client.patch(f"/api/v1/slots/{slot['id']}", headers=headers, json={"state": "closed"})
         )
         book = asyncio.create_task(
-            client.post(
-                "/api/v1/bookings",
+            book_as_client(
+                client,
                 json={
                     "slot_id": slot["id"],
                     "client_name": "Client",
@@ -255,7 +256,8 @@ async def test_owner_mutations_require_auth_and_validate_dates(api):
     ).status_code == 409
     assert (
         await client.get(
-            "/api/v1/me/bookings", params={"from": data["starts_at"], "to": data["starts_at"]}
+            "/api/v1/me/specialist/bookings",
+            params={"from": data["starts_at"], "to": data["starts_at"]},
         )
     ).status_code == 422
 
@@ -264,14 +266,14 @@ def test_seed_password_is_opt_in_and_repeatable(database):
     from sqlalchemy import create_engine
 
     from app.modules.owner.security import verify_password
-    from scripts.seed_demo import DEMO_USER, seed_demo
+    from scripts.test_fixtures import FIXTURE_USER, seed_test_fixture
 
-    seed_demo(database, password=PASSWORD)
-    seed_demo(database)
+    seed_test_fixture(database, password=PASSWORD)
+    seed_test_fixture(database)
     engine = create_engine(database)
     try:
         with engine.connect() as conn:
-            encoded = conn.scalar(select(User.password_hash).where(User.id == DEMO_USER))
+            encoded = conn.scalar(select(User.password_hash).where(User.id == FIXTURE_USER))
             assert encoded.startswith("$argon2id$")
             assert verify_password(PASSWORD, encoded)
     finally:
@@ -294,8 +296,8 @@ async def test_schedule_lists_closed_and_occupied_slots_only_for_owner(api):
         "state"
     ] == "closed"
     await client.patch(f"/api/v1/slots/{slot['id']}", headers=headers, json={"state": "open"})
-    await client.post(
-        "/api/v1/bookings",
+    await book_as_client(
+        client,
         json={
             "slot_id": slot["id"],
             "client_name": "Private",

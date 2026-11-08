@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from client_auth import book_as_client
 from test_accounts import ORIGIN, account_api, registration  # noqa: F401
 
 
@@ -83,8 +84,8 @@ async def test_publish_catalog_services_shifts_and_unpublish(account_api):  # no
         len((await client.get(f"/api/v1/specialists/{slug}/slots", params=filters)).json()["items"])
         == 4
     )
-    booking = await client.post(
-        "/api/v1/bookings",
+    booking = await book_as_client(
+        client,
         json={
             "slot_id": slots[0]["id"],
             "client_name": "Client",
@@ -100,8 +101,8 @@ async def test_publish_catalog_services_shifts_and_unpublish(account_api):  # no
         await client.get(f"/api/v1/specialists/{slug}/slots", params=filters)
     ).status_code == 404
     assert (
-        await client.post(
-            "/api/v1/bookings",
+        await book_as_client(
+            client,
             json={
                 "slot_id": slots[1]["id"],
                 "client_name": "Client",

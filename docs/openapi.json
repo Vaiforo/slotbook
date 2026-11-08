@@ -1,6 +1,46 @@
 {
   "components": {
     "schemas": {
+      "AccountBookingCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "client_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Email"
+          },
+          "client_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Name"
+          },
+          "slot_id": {
+            "format": "uuid",
+            "title": "Slot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id"
+        ],
+        "title": "AccountBookingCreate",
+        "type": "object"
+      },
       "BatchResult": {
         "properties": {
           "count": {
@@ -12,35 +52,6 @@
           "count"
         ],
         "title": "BatchResult",
-        "type": "object"
-      },
-      "BookingCreate": {
-        "additionalProperties": false,
-        "properties": {
-          "client_email": {
-            "format": "email",
-            "maxLength": 320,
-            "title": "Client Email",
-            "type": "string"
-          },
-          "client_name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Client Name",
-            "type": "string"
-          },
-          "slot_id": {
-            "format": "uuid",
-            "title": "Slot Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "slot_id",
-          "client_name",
-          "client_email"
-        ],
-        "title": "BookingCreate",
         "type": "object"
       },
       "BookingCreated": {
@@ -386,6 +397,147 @@
           "new_password"
         ],
         "title": "ChangePassword",
+        "type": "object"
+      },
+      "ClientBooking": {
+        "properties": {
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "client_email": {
+            "title": "Client Email",
+            "type": "string"
+          },
+          "client_name": {
+            "title": "Client Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "service_area": {
+            "title": "Service Area",
+            "type": "string"
+          },
+          "slot_id": {
+            "format": "uuid",
+            "title": "Slot Id",
+            "type": "string"
+          },
+          "specialist_name": {
+            "title": "Specialist Name",
+            "type": "string"
+          },
+          "specialist_slug": {
+            "title": "Specialist Slug",
+            "type": "string"
+          },
+          "specialization": {
+            "title": "Specialization",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "confirmed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "work_formats": {
+            "title": "Work Formats",
+            "type": "string"
+          },
+          "workplace": {
+            "title": "Workplace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slot_id",
+          "client_name",
+          "client_email",
+          "status",
+          "starts_at",
+          "ends_at",
+          "created_at",
+          "cancelled_at",
+          "specialist_name",
+          "specialist_slug",
+          "specialization",
+          "timezone",
+          "workplace",
+          "service_area",
+          "work_formats"
+        ],
+        "title": "ClientBooking",
+        "type": "object"
+      },
+      "ClientBookingPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClientBooking"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "upcoming_count": {
+            "title": "Upcoming Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "upcoming_count",
+          "limit",
+          "offset"
+        ],
+        "title": "ClientBookingPage",
         "type": "object"
       },
       "ErrorDetail": {
@@ -1922,11 +2074,29 @@
     "/api/v1/bookings": {
       "post": {
         "operationId": "create_booking",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BookingCreate"
+                "$ref": "#/components/schemas/AccountBookingCreate"
               }
             }
           },
@@ -1942,6 +2112,26 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
           },
           "404": {
             "content": {
@@ -2024,6 +2214,11 @@
             "description": "Service Unavailable"
           }
         },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
         "summary": "Create Booking",
         "tags": [
           "bookings"
@@ -2055,6 +2250,26 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
           },
           "404": {
             "content": {
@@ -2154,6 +2369,26 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -2228,30 +2463,55 @@
     },
     "/api/v1/me/bookings": {
       "get": {
-        "operationId": "owner_bookings",
+        "operationId": "my_bookings_api_v1_me_bookings_get",
         "parameters": [
           {
-            "description": "Inclusive start; ISO 8601 with UTC offset. Range at most 31 days.",
             "in": "query",
-            "name": "from",
-            "required": true,
+            "name": "view",
+            "required": false,
             "schema": {
-              "description": "Inclusive start; ISO 8601 with UTC offset. Range at most 31 days.",
-              "format": "date-time",
-              "title": "From",
+              "default": "upcoming",
+              "enum": [
+                "upcoming",
+                "past",
+                "cancelled"
+              ],
+              "title": "View",
               "type": "string"
             }
           },
           {
-            "description": "Exclusive start-time bound; ISO 8601 with UTC offset.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
             "in": "query",
             "name": "to",
-            "required": true,
+            "required": false,
             "schema": {
-              "description": "Exclusive start-time bound; ISO 8601 with UTC offset.",
-              "format": "date-time",
-              "title": "To",
-              "type": "string"
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {
@@ -2259,7 +2519,7 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 100,
+              "default": 20,
               "maximum": 100,
               "minimum": 1,
               "title": "Limit",
@@ -2276,26 +2536,6 @@
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "status",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "enum": [
-                    "confirmed",
-                    "cancelled"
-                  ],
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
             }
           },
           {
@@ -2320,7 +2560,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OwnerBookings"
+                  "$ref": "#/components/schemas/ClientBookingPage"
                 }
               }
             },
@@ -2402,9 +2642,133 @@
             "APIKeyCookie": []
           }
         ],
-        "summary": "Bookings",
+        "summary": "My Bookings",
         "tags": [
-          "owner"
+          "client-bookings"
+        ]
+      }
+    },
+    "/api/v1/me/bookings/{booking_id}/cancel": {
+      "post": {
+        "operationId": "cancel_own_booking_api_v1_me_bookings__booking_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "booking_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Booking Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingDetails"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method Not Allowed"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Cancel Own Booking",
+        "tags": [
+          "client-bookings"
         ]
       }
     },
@@ -3039,6 +3403,188 @@
         "summary": "Edit Profile",
         "tags": [
           "professional-account"
+        ]
+      }
+    },
+    "/api/v1/me/specialist/bookings": {
+      "get": {
+        "operationId": "owner_bookings",
+        "parameters": [
+          {
+            "description": "Inclusive start; ISO 8601 with UTC offset. Range at most 31 days.",
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "description": "Inclusive start; ISO 8601 with UTC offset. Range at most 31 days.",
+              "format": "date-time",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exclusive start-time bound; ISO 8601 with UTC offset.",
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "description": "Exclusive start-time bound; ISO 8601 with UTC offset.",
+              "format": "date-time",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "confirmed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerBookings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method Not Allowed"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyCookie": []
+          }
+        ],
+        "summary": "Bookings",
+        "tags": [
+          "owner"
         ]
       }
     },

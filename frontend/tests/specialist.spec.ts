@@ -9,10 +9,10 @@ test('real profile and slots, date changes, selection and responsive layout', as
 }, testInfo) => {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
-  await page.goto('/s/demo')
-  await expect(page.getByRole('heading', { name: 'Демо-специалист' })).toBeVisible()
+  await page.goto('/s/fixture')
+  await expect(page.getByRole('heading', { name: 'Тестовый специалист' })).toBeVisible()
   const response = page.waitForResponse(
-    (r) => r.url().includes('/specialists/demo/slots?') && r.status() === 200,
+    (r) => r.url().includes('/specialists/fixture/slots?') && r.status() === 200,
   )
   await page.getByRole('button', { name: 'Завтра', exact: true }).click()
   expect((await response).request().method()).toBe('GET')
@@ -48,7 +48,7 @@ test('keyboard selection and date dialog with focus return', async ({ page }) =>
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Найдите своего специалиста' })).toBeVisible()
   await page.getByRole('link', { name: 'Посмотреть профиль' }).first().click()
-  await expect(page).toHaveURL(/\/s\/demo$/)
+  await expect(page).toHaveURL(/\/s\/fixture$/)
   await page.getByRole('button', { name: 'Завтра', exact: true }).focus()
   await page.keyboard.press('Enter')
   const time = page
@@ -75,18 +75,18 @@ test('profile loading and slot failure recover via real API', async ({ page }) =
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
-  await page.route('**/api/v1/specialists/demo', async (route) => {
+  await page.route('**/api/v1/specialists/fixture', async (route) => {
     await gate
     await route.continue()
   })
-  await page.goto('/s/demo')
+  await page.goto('/s/fixture')
   await expect(page.getByRole('status', { name: 'Загружаем профиль' })).toBeVisible()
   release()
-  await expect(page.getByRole('heading', { name: 'Демо-специалист' })).toBeVisible()
-  await page.route('**/api/v1/specialists/demo/slots?*', (route) => route.abort('failed'))
+  await expect(page.getByRole('heading', { name: 'Тестовый специалист' })).toBeVisible()
+  await page.route('**/api/v1/specialists/fixture/slots?*', (route) => route.abort('failed'))
   await page.getByRole('button', { name: 'Завтра', exact: true }).click()
   await expect(page.getByText('Не удалось загрузить время', { exact: true })).toBeVisible()
-  await page.unroute('**/api/v1/specialists/demo/slots?*')
+  await page.unroute('**/api/v1/specialists/fixture/slots?*')
   await page.getByRole('button', { name: 'Повторить попытку', exact: true }).click()
   await expect(
     page.getByRole('group', { name: 'Доступное время', exact: true }).getByRole('button'),
@@ -109,7 +109,7 @@ test('unknown specialist is a real 404; unknown route is usable', async ({ page 
 })
 
 test('a new date never displays the old slots while waiting', async ({ page }) => {
-  await page.goto('/s/demo')
+  await page.goto('/s/fixture')
   await page.getByRole('button', { name: 'Завтра', exact: true }).click()
   await page
     .getByRole('group', { name: 'Доступное время', exact: true })
@@ -119,7 +119,7 @@ test('a new date never displays the old slots while waiting', async ({ page }) =
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
-  await page.route('**/api/v1/specialists/demo/slots?*', async (route) => {
+  await page.route('**/api/v1/specialists/fixture/slots?*', async (route) => {
     await gate
     await route.continue()
   })

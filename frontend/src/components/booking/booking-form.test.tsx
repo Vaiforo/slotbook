@@ -3,82 +3,91 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import { BookingForm } from './booking-form'
 import { ApiError, createBooking, type BookingCreated } from '@/lib/api'
+import { sessionKey } from '@/lib/owner-api'
 
 vi.mock('@/lib/api', async (original) => ({
   ...(await original<typeof import('@/lib/api')>()),
   createBooking: vi.fn(),
 }))
+vi.mock('@/lib/owner-api', async (original) => ({
+  ...(await original<typeof import('@/lib/owner-api')>()),
+  currentOwner: vi.fn(async () => null),
+}))
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
 })
-function setup() {
-  const client = new QueryClient()
-  const invalidation = vi.spyOn(client, 'invalidateQueries')
-  const onBooked = vi.fn()
-  const onUnavailable = vi.fn()
-  render(
-    <QueryClientProvider client={client}>
-      <BookingForm slotId="slot" onBooked={onBooked} onUnavailable={onUnavailable} />
-    </QueryClientProvider>,
+function setup(authenticated = true) {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } })
+  client.setQueryData(
+    sessionKey,
+    authenticated
+      ? {
+          id: 'client',
+          role: 'client',
+          full_name: 'Анна',
+          email: 'anna@example.com',
+          csrf_token: 'csrf',
+        }
+      : null,
   )
-  return { user: userEvent.setup(), onBooked, onUnavailable, invalidation }
+  const onBooked = vi.fn(),
+    onUnavailable = vi.fn()
+  render(
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <BookingForm
+          date="2030-01-01"
+          slotId="slot"
+          onBooked={onBooked}
+          onUnavailable={onUnavailable}
+        />
+      </QueryClientProvider>
+    </MemoryRouter>,
+  )
+  return { user: userEvent.setup(), onBooked, onUnavailable }
 }
-async function fill(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText('Ваше имя'), ' Анна ')
-  await user.type(screen.getByLabelText('Email'), 'anna@example.com')
-}
-it('validates fields before sending, trims values and blocks duplicate submission while pending', async () => {
-  let release!: (booking: BookingCreated) => void
+it('shows account contacts and blocks duplicate submissions', async () => {
+  let release!: (value: BookingCreated) => void
   vi.mocked(createBooking).mockImplementation(
     () =>
       new Promise((resolve) => {
         release = resolve
       }),
   )
-  const { user, onBooked, invalidation } = setup()
-  await user.click(screen.getByRole('button', { name: 'Подтвердить запись' }))
-  expect(await screen.findByText('Укажите имя.')).toBeVisible()
-  expect(createBooking).not.toHaveBeenCalled()
-  await fill(user)
+  const { user, onBooked } = setup()
+  expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+  expect(screen.getByLabelText('Email')).toHaveAttribute('readonly')
   await user.dblClick(screen.getByRole('button', { name: 'Подтвердить запись' }))
-  expect(screen.getByRole('button', { name: 'Записываем…' })).toBeDisabled()
   expect(createBooking).toHaveBeenCalledTimes(1)
-  expect(createBooking).toHaveBeenCalledWith(
-    { slot_id: 'slot', client_name: 'Анна', client_email: 'anna@example.com' },
-    expect.any(AbortSignal),
-  )
+  expect(createBooking).toHaveBeenCalledWith({ slot_id: 'slot' }, expect.any(AbortSignal), 'csrf')
   release({ id: 'booking', manage_token: 'secret' } as BookingCreated)
   await waitFor(() => expect(onBooked).toHaveBeenCalledTimes(1))
-  await waitFor(() => expect(invalidation).toHaveBeenCalled())
 })
-it('refreshes availability and asks for another slot on 409 without retry', async () => {
+it('asks guests to authenticate and preserves selection in the return URL', () => {
+  setup(false)
+  expect(screen.getByRole('link', { name: 'Войти' })).toHaveAttribute(
+    'href',
+    expect.stringContaining('next='),
+  )
+  expect(screen.queryByRole('button', { name: 'Подтвердить запись' })).not.toBeInTheDocument()
+})
+it('refreshes availability on conflict without retry', async () => {
   vi.mocked(createBooking).mockRejectedValue(new ApiError(409, 'slot_unavailable', 'Conflict'))
-  const { user, onUnavailable, invalidation, onBooked } = setup()
-  await fill(user)
+  const { user, onUnavailable } = setup()
   await user.click(screen.getByRole('button', { name: 'Подтвердить запись' }))
   await waitFor(() => expect(onUnavailable).toHaveBeenCalledTimes(1))
-  expect(invalidation).toHaveBeenCalledWith({
-    queryKey: ['specialists'],
-    predicate: expect.any(Function),
-  })
   expect(createBooking).toHaveBeenCalledTimes(1)
-  expect(onBooked).not.toHaveBeenCalled()
 })
-it.each([
-  [new ApiError(422, 'validation_error', 'Invalid'), 'Сервер не принял данные.'],
-  [new TypeError('Failed to fetch'), 'Запись могла сохраниться.'],
-])('keeps entered values and explains a failure without retry: %s', async (error, message) => {
-  vi.mocked(createBooking).mockRejectedValue(error)
+it('explains an uncertain network result without retry', async () => {
+  vi.mocked(createBooking).mockRejectedValue(new TypeError('Failed to fetch'))
   const { user, onBooked } = setup()
-  await fill(user)
   await user.click(screen.getByRole('button', { name: 'Подтвердить запись' }))
-  expect(await screen.findByText(message, { exact: false })).toBeVisible()
-  expect(screen.getByLabelText('Email')).toHaveValue('anna@example.com')
-  expect(screen.getByRole('button', { name: 'Подтвердить запись' })).toBeEnabled()
+  expect(await screen.findByText('Запись могла сохраниться.', { exact: false })).toBeVisible()
   expect(createBooking).toHaveBeenCalledTimes(1)
   expect(onBooked).not.toHaveBeenCalled()
 })

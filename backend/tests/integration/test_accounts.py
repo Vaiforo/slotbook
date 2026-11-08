@@ -102,6 +102,7 @@ async def test_registration_validation_and_concurrency(account_api):
     for changes in [
         dict(role="admin"),
         dict(full_name="  "),
+        dict(full_name="bad\x00name"),
         dict(password="short"),
         dict(timezone="Unknown/Nowhere"),
         dict(role="specialist"),

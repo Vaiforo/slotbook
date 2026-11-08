@@ -34,14 +34,14 @@ else
 fi
 "${compose[@]}" up -d --wait --wait-timeout 120
 base="http://127.0.0.1:$HTTP_PORT"
-"${compose[@]}" exec -T api python -m scripts.seed_demo
-"${compose[@]}" exec -T api python -m scripts.seed_demo
-curl -fsS -H 'Content-Type: application/json' -d '{"text":"завтра"}' "$base/api/v1/specialists/demo/search" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["status"]=="unavailable" and r["items"]==[]'
+"${compose[@]}" exec -T api python -m scripts.seed_specialists
+"${compose[@]}" exec -T api python -m scripts.seed_specialists
+curl -fsS -H 'Content-Type: application/json' -d '{"text":"завтра"}' "$base/api/v1/specialists/anna-belova/search" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["status"]=="unavailable" and r["items"]==[]'
 "${compose[@]}" stop redis
 python3 scripts/check-redis-outage.py "$base"
 "${compose[@]}" up -d --wait redis
 "${compose[@]}" stop worker rabbitmq
-python3 scripts/demo-api.py --base-url "$base" --book-and-cancel
+python3 scripts/booking-journey.py --base-url "$base" --book-and-cancel
 test "$("${compose[@]}" exec -T db psql -U slotbook -Atc 'SELECT count(*) FROM outbox_events')" = 2
 "${compose[@]}" up -d --wait rabbitmq
 for attempt in $(seq 1 90); do

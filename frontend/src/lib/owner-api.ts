@@ -33,7 +33,7 @@ function query(filters: BookingFilters) {
 export const ownerSlots = (filters: SlotFilters, signal?: AbortSignal) =>
   request<OwnerSlots>(`/me/slots?${query(filters)}`, { signal })
 export const ownerBookings = (filters: BookingFilters, signal?: AbortSignal) =>
-  request<OwnerBookings>(`/me/bookings?${query(filters)}`, { signal })
+  request<OwnerBookings>(`/me/specialist/bookings?${query(filters)}`, { signal })
 export const publishSlot = (data: SlotCreate, csrfToken: string) =>
   request<components['schemas']['OwnerSlot']>('/slots', {
     method: 'POST',

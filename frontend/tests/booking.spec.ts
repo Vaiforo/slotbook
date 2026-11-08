@@ -1,15 +1,14 @@
+import { authenticatePage, bookClient } from './helpers/client'
 import { expect, test, type Page } from '@playwright/test'
 import type { BookingCreated } from '../src/lib/api'
 
 async function choose(page: Page, time = '10:00') {
-  await page.goto('/s/demo')
+  await page.goto('/s/fixture')
   await page.getByRole('button', { name: 'Завтра', exact: true }).click()
   await page
     .getByRole('group', { name: 'Доступное время', exact: true })
     .getByRole('button', { name: time, exact: true })
     .click()
-  await page.getByLabel('Ваше имя').fill('Анна Тестовая')
-  await page.getByLabel('Email', { exact: true }).fill('anna@example.com')
 }
 
 test('real booking, secret link in StrictMode, explicit cancellation and rebooking', async ({
@@ -140,12 +139,12 @@ test('real conflict refreshes slots and lets the client choose another time', as
   const { dayFilters, todayIn, addDays } = await import('../src/lib/dates')
   const filters = dayFilters(addDays(todayIn('Asia/Omsk'), 1), 'Asia/Omsk')
   const slots = await (
-    await request.get('/api/v1/specialists/demo/slots', { params: filters })
+    await request.get('/api/v1/specialists/fixture/slots', { params: filters })
   ).json()
   const slot = slots.items.find(
     (item: { starts_at: string }) => new Date(item.starts_at).getUTCMinutes() === 30,
   )
-  const winnerResponse = await request.post('/api/v1/bookings', {
+  const winnerResponse = await bookClient(request, {
     data: { slot_id: slot.id, client_name: 'Другой клиент', client_email: 'other@example.com' },
   })
   expect(winnerResponse.status()).toBe(201)
@@ -166,7 +165,7 @@ test('real conflict refreshes slots and lets the client choose another time', as
       .getByRole('group', { name: 'Доступное время', exact: true })
       .getByRole('button', { name: '11:00', exact: true })
       .click()
-    await expect(page.getByLabel('Ваше имя')).toBeVisible()
+
     await expect(page.getByText('Это время уже недоступно.', { exact: false })).toHaveCount(0)
   } finally {
     await request.post(`/api/v1/bookings/${winner.id}/cancel`, {
@@ -226,4 +225,8 @@ test('cancellation failures keep the booking and do not retry POST', async ({ pa
       headers: { Authorization: `Bearer ${booking.manage_token}` },
     })
   }
+})
+
+test.beforeEach(async ({ page }) => {
+  await authenticatePage(page)
 })

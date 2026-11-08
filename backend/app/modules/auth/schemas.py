@@ -1,4 +1,5 @@
 from typing import Literal, Self
+from unicodedata import category
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -12,6 +13,13 @@ class ProfileUpdate(BaseModel):
     full_name: str = Field(min_length=1, max_length=200)
     phone: str = Field(default="", max_length=30)
     timezone: str = Field(max_length=100)
+
+    @field_validator("full_name")
+    @classmethod
+    def printable_name(cls, value: str) -> str:
+        if any(category(char) == "Cc" for char in value):
+            raise ValueError("Control characters are not allowed")
+        return value
 
     @field_validator("full_name", "phone", "timezone", mode="before")
     @classmethod

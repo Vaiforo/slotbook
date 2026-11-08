@@ -18,6 +18,6 @@ for path in ["/api/v1/auth/login", "/api/v1/bookings"]:
         assert response.headers["Retry-After"] == "5"
     else:
         raise AssertionError("Write admitted without Redis")
-for path in ["/health/ready", "/api/v1/specialists/demo"]:
+for path in ["/health/ready", "/api/v1/specialists/anna-belova"]:
     assert urlopen(base + path, timeout=5).status == 200
 print("Redis outage blocks writes and preserves reads")

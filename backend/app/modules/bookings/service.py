@@ -42,9 +42,15 @@ class BookingService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create(self, data: BookingCreate) -> BookingCreated:
+    async def create(
+        self, data: BookingCreate, *, client_user_id: UUID | None = None
+    ) -> BookingCreated:
         try:
-            async with self.session.begin():
+            async with (
+                self.session.begin_nested()
+                if self.session.in_transaction()
+                else self.session.begin()
+            ):
                 initial = await repository.get_slot(self.session, data.slot_id)
                 if initial is None:
                     raise DomainError(404, "not_found", "Not Found")
@@ -73,6 +79,7 @@ class BookingService:
                 token = new_manage_token()
                 booking = Booking(
                     slot_id=slot.id,
+                    client_user_id=client_user_id,
                     client_name=data.client_name,
                     client_email=str(data.client_email),
                     status="confirmed",
@@ -95,22 +102,33 @@ class BookingService:
             raise
 
     async def get(self, booking_id: UUID, token: str | None) -> BookingDetails:
-        async with self.session.begin():
+        async with (
+            self.session.begin_nested() if self.session.in_transaction() else self.session.begin()
+        ):
             booking = authorize(await repository.get_booking(self.session, booking_id), token)
             slot = await repository.get_slot(self.session, booking.slot_id)
             assert slot is not None  # FK and RESTRICT protect this relation.
             return details(booking, slot)
 
-    async def cancel(self, booking_id: UUID, token: str | None) -> BookingDetails:
-        async with self.session.begin():
+    async def cancel(
+        self, booking_id: UUID, token: str | None, *, client_user_id: UUID | None = None
+    ) -> BookingDetails:
+        async with (
+            self.session.begin_nested() if self.session.in_transaction() else self.session.begin()
+        ):
             # Lookup/authorization is inside the transaction, before taking any row locks.
-            booking = authorize(await repository.get_booking(self.session, booking_id), token)
+            def allowed(booking: Booking | None) -> Booking:
+                if client_user_id is not None:
+                    if booking is None or booking.client_user_id != client_user_id:
+                        raise DomainError(404, "not_found", "Not Found")
+                    return booking
+                return authorize(booking, token)
+
+            booking = allowed(await repository.get_booking(self.session, booking_id))
             slot = await repository.get_slot(self.session, booking.slot_id, lock=True)
             assert slot is not None
             # Always lock slot -> booking and refresh the ORM identity after waiting.
-            booking = authorize(
-                await repository.get_booking(self.session, booking_id, lock=True), token
-            )
+            booking = allowed(await repository.get_booking(self.session, booking_id, lock=True))
             if booking.status != "cancelled":
                 now = await repository.database_time(self.session)
                 if slot.starts_at <= now:

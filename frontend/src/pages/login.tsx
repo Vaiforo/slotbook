@@ -100,7 +100,7 @@ export function LoginPage() {
         )}
       </form>
       <p>
-        Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+        Нет аккаунта? <Link to={`/register${location.search}`}>Зарегистрироваться</Link>
       </p>
       {new URLSearchParams(location.search).has('passwordChanged') && (
         <p role="status">Пароль изменён. Войдите с новым паролем.</p>

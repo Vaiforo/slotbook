@@ -147,10 +147,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Bookings */
-        get: operations["owner_bookings"];
+        /** My Bookings */
+        get: operations["my_bookings_api_v1_me_bookings_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/bookings/{booking_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Own Booking */
+        post: operations["cancel_own_booking_api_v1_me_bookings__booking_id__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -208,6 +225,23 @@ export interface paths {
         head?: never;
         /** Edit Profile */
         patch: operations["edit_profile_api_v1_me_specialist_patch"];
+        trace?: never;
+    };
+    "/api/v1/me/specialist/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bookings */
+        get: operations["owner_bookings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/me/specialist/publish": {
@@ -458,25 +492,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** BatchResult */
-        BatchResult: {
-            /** Count */
-            count: number;
-        };
-        /** BookingCreate */
-        BookingCreate: {
-            /**
-             * Client Email
-             * Format: email
-             */
-            client_email: string;
+        /** AccountBookingCreate */
+        AccountBookingCreate: {
+            /** Client Email */
+            client_email?: string | null;
             /** Client Name */
-            client_name: string;
+            client_name?: string | null;
             /**
              * Slot Id
              * Format: uuid
              */
             slot_id: string;
+        };
+        /** BatchResult */
+        BatchResult: {
+            /** Count */
+            count: number;
         };
         /** BookingCreated */
         BookingCreated: {
@@ -655,6 +686,72 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /** ClientBooking */
+        ClientBooking: {
+            /** Cancelled At */
+            cancelled_at: string | null;
+            /** Client Email */
+            client_email: string;
+            /** Client Name */
+            client_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Service Area */
+            service_area: string;
+            /**
+             * Slot Id
+             * Format: uuid
+             */
+            slot_id: string;
+            /** Specialist Name */
+            specialist_name: string;
+            /** Specialist Slug */
+            specialist_slug: string;
+            /** Specialization */
+            specialization: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "confirmed" | "cancelled";
+            /** Timezone */
+            timezone: string;
+            /** Work Formats */
+            work_formats: string;
+            /** Workplace */
+            workplace: string;
+        };
+        /** ClientBookingPage */
+        ClientBookingPage: {
+            /** Items */
+            items: components["schemas"]["ClientBooking"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+            /** Upcoming Count */
+            upcoming_count: number;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -1566,13 +1663,15 @@ export interface operations {
     create_booking: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BookingCreate"];
+                "application/json": components["schemas"]["AccountBookingCreate"];
             };
         };
         responses: {
@@ -1583,6 +1682,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingCreated"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1679,6 +1796,24 @@ export interface operations {
                     "application/json": components["schemas"]["BookingDetails"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -1755,6 +1890,24 @@ export interface operations {
                     "application/json": components["schemas"]["BookingDetails"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -1811,16 +1964,14 @@ export interface operations {
             };
         };
     };
-    owner_bookings: {
+    my_bookings_api_v1_me_bookings_get: {
         parameters: {
-            query: {
-                /** @description Inclusive start; ISO 8601 with UTC offset. Range at most 31 days. */
-                from: string;
-                /** @description Exclusive start-time bound; ISO 8601 with UTC offset. */
-                to: string;
+            query?: {
+                view?: "upcoming" | "past" | "cancelled";
+                from?: string | null;
+                to?: string | null;
                 limit?: number;
                 offset?: number;
-                status?: ("confirmed" | "cancelled") | null;
             };
             header?: {
                 "X-CSRF-Token"?: string | null;
@@ -1836,7 +1987,94 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OwnerBookings"];
+                    "application/json": components["schemas"]["ClientBookingPage"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Method Not Allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel_own_booking_api_v1_me_bookings__booking_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingDetails"];
                 };
             };
             /** @description Unauthorized */
@@ -2277,6 +2515,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfessionalDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Method Not Allowed */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    owner_bookings: {
+        parameters: {
+            query: {
+                /** @description Inclusive start; ISO 8601 with UTC offset. Range at most 31 days. */
+                from: string;
+                /** @description Exclusive start-time bound; ISO 8601 with UTC offset. */
+                to: string;
+                limit?: number;
+                offset?: number;
+                status?: ("confirmed" | "cancelled") | null;
+            };
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerBookings"];
                 };
             };
             /** @description Unauthorized */

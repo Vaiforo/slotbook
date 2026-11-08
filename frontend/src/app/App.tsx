@@ -7,9 +7,16 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { CatalogPage } from '@/pages/catalog'
 import { RegisterPage } from '@/pages/register'
-import { AccountOverview, AccountProfile, AccountSecurity } from '@/pages/account'
+import { AccountProfile, AccountSecurity } from '@/pages/account'
 import { useOutletContext } from 'react-router-dom'
 import type { Identity } from '@/lib/owner-api'
+
+const MyBookingsPage = lazy(() =>
+  import('@/pages/my-bookings').then((m) => ({ default: m.MyBookingsPage })),
+)
+const SpecialistOverview = lazy(() =>
+  import('@/pages/specialist-overview').then((m) => ({ default: m.SpecialistOverview })),
+)
 
 const ProfessionalPage = lazy(() =>
   import('@/pages/professional').then((m) => ({ default: m.ProfessionalPage })),
@@ -37,7 +44,12 @@ const SchedulePage = lazy(() =>
 
 function DashboardEntry() {
   const user = useOutletContext<Identity>()
-  return user.role === 'specialist' ? <DashboardPage /> : <AccountOverview />
+  return user.role === 'specialist' ? <SpecialistOverview /> : <MyBookingsPage overview />
+}
+
+function BookingsEntry() {
+  const user = useOutletContext<Identity>()
+  return user.role === 'specialist' ? <DashboardPage /> : <MyBookingsPage />
 }
 
 function SpecialistSchedule() {
@@ -105,6 +117,7 @@ export function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/dashboard" element={<OwnerLayout />}>
                 <Route index element={<DashboardEntry />} />
+                <Route path="bookings" element={<BookingsEntry />} />
                 <Route path="profile" element={<AccountProfile />} />
                 <Route path="security" element={<AccountSecurity />} />
                 <Route path="schedule" element={<SpecialistSchedule />} />
@@ -112,6 +125,7 @@ export function App() {
                 <Route path="shifts" element={<ProfessionalEntry shifts />} />
               </Route>
               <Route path="/manage/:id" element={<ManagePage />} />
+              <Route path="/s/demo" element={<Navigate to="/" replace />} />
               <Route path="/s/:slug" element={<SpecialistPage />} />
               <Route
                 path="*"

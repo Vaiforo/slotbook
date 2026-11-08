@@ -6,14 +6,20 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.core.errors import ErrorResponse
-from app.modules.bookings.schemas import BookingCreate, BookingCreated, BookingDetails
+from app.core.errors import DomainError, ErrorResponse
+from app.modules.auth.dependencies import ClientUser
+from app.modules.bookings.schemas import (
+    AccountBookingCreate,
+    BookingCreate,
+    BookingCreated,
+    BookingDetails,
+)
 from app.modules.bookings.service import BookingService
 
 router = APIRouter(
     prefix="/api/v1/bookings",
     tags=["bookings"],
-    responses={409: {"model": ErrorResponse}, 413: {"model": ErrorResponse}},
+    responses={code: {"model": ErrorResponse} for code in (401, 403, 409, 413)},
 )
 Session = Annotated[AsyncSession, Depends(get_session)]
 bearer = HTTPBearer(
@@ -31,8 +37,20 @@ Credentials = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
     operation_id="create_booking",
     responses={code: {"model": ErrorResponse} for code in (429, 503)},
 )
-async def create_booking(data: BookingCreate, session: Session) -> BookingCreated:
-    return await BookingService(session).create(data)
+async def create_booking(data: AccountBookingCreate, client: ClientUser) -> BookingCreated:
+    if not client.user.full_name:
+        raise DomainError(409, "profile_incomplete", "Please complete your account name")
+    try:
+        snapshot = BookingCreate(
+            slot_id=data.slot_id,
+            client_name=client.user.full_name,
+            client_email=client.user.normalized_email,
+        )
+    except ValueError:
+        raise DomainError(
+            409, "profile_incomplete", "Please update your account contacts"
+        ) from None
+    return await BookingService(client.db).create(snapshot, client_user_id=client.user.id)
 
 
 @router.get("/{booking_id}", response_model=BookingDetails, operation_id="get_booking")

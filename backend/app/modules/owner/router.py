@@ -78,7 +78,7 @@ async def update_slot(slot_id: UUID, data: SlotUpdate, owner: Owner) -> OwnerSlo
     return OwnerSlot.model_validate(slot)
 
 
-@router.get("/me/bookings", response_model=OwnerBookings, operation_id="owner_bookings")
+@router.get("/me/specialist/bookings", response_model=OwnerBookings, operation_id="owner_bookings")
 async def bookings(filters: Annotated[BookingFilters, Query()], owner: Owner) -> OwnerBookings:
     query = (
         select(Booking, Slot)
