@@ -106,6 +106,20 @@ class SpecialistService(Base):
     description: Mapped[str] = mapped_column(String(2000), server_default="")
 
 
+class CatalogSchedule(Base):
+    __tablename__ = "catalog_schedules"
+    name: Mapped[str] = mapped_column(String(50), primary_key=True)
+    initial_starts_on: Mapped[date] = mapped_column()
+    generated_through: Mapped[date] = mapped_column()
+    next_extension_on: Mapped[date] = mapped_column()
+    __table_args__ = (
+        CheckConstraint("generated_through >= initial_starts_on", name="catalog_schedule_range"),
+        CheckConstraint(
+            "extract(isodow from next_extension_on) = 3", name="catalog_schedule_wednesday"
+        ),
+    )
+
+
 class Slot(Base):
     __tablename__ = "slots"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

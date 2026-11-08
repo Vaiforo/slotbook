@@ -4,6 +4,8 @@
 
 [Каталог, профили и смены](docs/specialists.md)
 
+[Автопродление расписания тестовых специалистов](docs/catalog-scheduler.md)
+
 Версия `0.4.0`. [Изменения](CHANGELOG.md) · [Быстрый сценарий](docs/getting-started.md) ·
 [Как устроен код](docs/walkthrough.md) · [Как изучать](docs/learning-path.md) ·
 [Выпуск и резервные копии](docs/release.md)
