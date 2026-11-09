@@ -3,12 +3,20 @@ from collections.abc import Sequence
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Booking, Slot, Specialist
+from app.models import Booking, Slot, Specialist, User
 from app.modules.specialists.schemas import SlotFilters
 
 
 async def find_specialist(session: AsyncSession, slug: str) -> Specialist | None:
-    result = await session.scalars(select(Specialist).where(Specialist.slug == slug))
+    result = await session.scalars(
+        select(Specialist)
+        .join(User)
+        .where(
+            Specialist.slug == slug,
+            Specialist.publication_status == "published",
+            User.is_active.is_(True),
+        )
+    )
     return result.one_or_none()
 
 

@@ -43,7 +43,7 @@ def test_two_processes_share_atomic_budget(redis_url):
     with ProcessPoolExecutor(2, mp_context=get_context("spawn")) as pool:
         jobs = [pool.submit(worker, redis_url, prefix) for _ in range(2)]
         codes = [code for job in jobs for code in job.result(timeout=30)]
-    assert codes.count(422) == 7
+    assert codes.count(401) == 7
     assert codes.count(429) == 13
 
 
@@ -61,7 +61,7 @@ async def test_expiry_ip_isolation_and_no_forwarded_header_spoofing(redis_url):
     )
     async with app.router.lifespan_context(app):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            assert (await client.post("/api/v1/bookings", json={})).status_code == 422
+            assert (await client.post("/api/v1/bookings", json={})).status_code == 401
             response = await client.post(
                 "/api/v1/bookings/", json={}, headers={"X-Forwarded-For": "different"}
             )
@@ -74,9 +74,9 @@ async def test_expiry_ip_isolation_and_no_forwarded_header_spoofing(redis_url):
             async with AsyncClient(
                 transport=ASGITransport(app=app, client=("192.0.2.5", 1000)), base_url="http://test"
             ) as other:
-                assert (await other.post("/api/v1/bookings", json={})).status_code == 422
+                assert (await other.post("/api/v1/bookings", json={})).status_code == 401
             await asyncio.sleep(1.1)
-            assert (await client.post("/api/v1/bookings", json={})).status_code == 422
+            assert (await client.post("/api/v1/bookings", json={})).status_code == 401
 
 
 @pytest.mark.asyncio
@@ -87,7 +87,7 @@ async def test_redis_failure_blocks_writes_but_not_liveness():
             for path in [
                 "/api/v1/auth/login",
                 "/api/v1/bookings",
-                "/api/v1/specialists/demo/search",
+                "/api/v1/specialists/fixture/search",
             ]:
                 response = await client.post(path, json={})
                 assert response.status_code == 503
@@ -114,7 +114,7 @@ async def test_ai_limit_is_shared_across_specialists(redis_url):
     async with app.router.lifespan_context(app):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             assert (
-                await client.post("/api/v1/specialists/demo/search", json={})
+                await client.post("/api/v1/specialists/fixture/search", json={})
             ).status_code == 422
             response = await client.post("/api/v1/specialists/other/search/", json={})
             assert response.status_code == 429

@@ -1,6 +1,5 @@
 """Explicit, repeatable synthetic data. Password activation is explicit and opt-in."""
 
-import os
 from datetime import datetime, time, timedelta
 from uuid import NAMESPACE_URL, uuid5
 from zoneinfo import ZoneInfo
@@ -8,17 +7,18 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import create_engine, delete, text
 from sqlalchemy.dialects.postgresql import insert
 
-from app.core.config import Settings
 from app.models import Session, Slot, Specialist, User
 from app.modules.owner.security import hasher
 
-DEMO_USER = uuid5(NAMESPACE_URL, "slotbook/demo/user")
-DEMO_SPECIALIST = uuid5(NAMESPACE_URL, "slotbook/demo/specialist")
+FIXTURE_USER = uuid5(NAMESPACE_URL, "slotbook/test-fixture/user")
+FIXTURE_SPECIALIST = uuid5(NAMESPACE_URL, "slotbook/test-fixture/specialist")
 
 
-def seed_demo(url: str, password: str | None = None) -> None:
+def seed_test_fixture(url: str, password: str | None = None) -> None:
     if password is not None and len(password) < 12:
         raise ValueError("Demo password must contain at least 12 characters")
+    if not any(name in url for name in ("slotbook_test_", "slotbook_browser_")):
+        raise ValueError("Fixtures require a disposable test database")
     engine = create_engine(url)
     try:
         with engine.begin() as conn:
@@ -26,26 +26,28 @@ def seed_demo(url: str, password: str | None = None) -> None:
             conn.execute(
                 insert(User)
                 .values(
-                    id=DEMO_USER,
-                    normalized_email="demo@example.invalid",
-                    password_hash="!disabled-demo-owner",
+                    id=FIXTURE_USER,
+                    role="specialist",
+                    normalized_email="fixture@example.invalid",
+                    password_hash="!disabled-test-owner",
                 )
                 .on_conflict_do_nothing(index_elements=[User.id])
             )
             if password is not None:
-                conn.execute(delete(Session).where(Session.user_id == DEMO_USER))
+                conn.execute(delete(Session).where(Session.user_id == FIXTURE_USER))
                 conn.execute(
                     User.__table__.update()
-                    .where(User.id == DEMO_USER)
+                    .where(User.id == FIXTURE_USER)
                     .values(password_hash=hasher.hash(password))
                 )
             conn.execute(
                 insert(Specialist)
                 .values(
-                    id=DEMO_SPECIALIST,
-                    user_id=DEMO_USER,
-                    slug="demo",
-                    display_name="Демо-специалист",
+                    id=FIXTURE_SPECIALIST,
+                    publication_status="published",
+                    user_id=FIXTURE_USER,
+                    slug="fixture",
+                    display_name="Тестовый специалист",
                     timezone="Asia/Omsk",
                 )
                 .on_conflict_do_nothing(index_elements=[Specialist.id])
@@ -58,8 +60,8 @@ def seed_demo(url: str, password: str | None = None) -> None:
                 conn.execute(
                     insert(Slot)
                     .values(
-                        id=uuid5(DEMO_SPECIALIST, begins.isoformat()),
-                        specialist_id=DEMO_SPECIALIST,
+                        id=uuid5(FIXTURE_SPECIALIST, begins.isoformat()),
+                        specialist_id=FIXTURE_SPECIALIST,
                         starts_at=begins,
                         ends_at=begins + timedelta(minutes=30),
                     )
@@ -67,8 +69,3 @@ def seed_demo(url: str, password: str | None = None) -> None:
                 )
     finally:
         engine.dispose()
-
-
-if __name__ == "__main__":
-    seed_demo(Settings().database_url, os.getenv("SLOTBOOK_DEMO_PASSWORD"))
-    print("Demo data ready (demo@example.invalid).")

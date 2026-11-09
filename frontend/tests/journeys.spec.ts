@@ -1,3 +1,4 @@
+import { bookClient } from './helpers/client'
 import { expect, test } from '@playwright/test'
 import { login } from './helpers/owner'
 import { addDays, todayIn, timeLabel } from '../src/lib/dates'
@@ -74,7 +75,7 @@ test('a client wins before closing; cancellation frees the slot and stays isolat
   })
   try {
     expect((await guest.request.get('/api/v1/auth/me')).status()).toBe(401)
-    const booked = await guest.request.post('/api/v1/bookings', {
+    const booked = await bookClient(guest.request, {
       data: { slot_id: slot.id, client_name: 'Клиент гонки', client_email: 'race-ui@example.com' },
     })
     expect(booked.status()).toBe(201)
@@ -138,6 +139,7 @@ test('navigation, keyboard focus, invalid date range and empty page recovery', a
     await page.screenshot({ path: testInfo.outputPath(`login-${width}.png`), fullPage: true })
   }
   await login(page, 'other@example.invalid', 'browser-other-password')
+  await page.getByRole('link', { name: 'Записи', exact: true }).click()
   await page.getByLabel('С даты', { exact: true }).fill(future(8))
   await page.getByLabel('По дату включительно', { exact: true }).fill(future(7))
   await expect(page.getByText('Выберите период от 1 до 31 дня.', { exact: true })).toBeVisible()

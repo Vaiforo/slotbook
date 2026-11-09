@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     ai_limit: int = Field(default=5, ge=1, le=100)
 
     redis_url: str | None = None
+    register_limit: int = Field(default=5, ge=1, le=10000)
     login_limit: int = Field(default=10, ge=1, le=10000)
     booking_limit: int = Field(default=20, ge=1, le=10000)
     rate_window_seconds: int = Field(default=60, ge=1, le=3600)

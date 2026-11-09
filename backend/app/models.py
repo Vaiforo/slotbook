@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import ExcludeConstraint
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -15,8 +15,17 @@ class User(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     normalized_email: Mapped[str] = mapped_column(String(320), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), server_default="client")
+    full_name: Mapped[str] = mapped_column(String(200), server_default="")
+    phone: Mapped[str] = mapped_column(String(30), server_default="")
+    timezone: Mapped[str] = mapped_column(String(100), server_default="Asia/Omsk")
+    is_active: Mapped[bool] = mapped_column(server_default=text("true"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
+        CheckConstraint("role IN ('client', 'specialist')", name="user_role"),
         CheckConstraint(
             "normalized_email = lower(trim(normalized_email)) AND normalized_email <> ''",
             name="normalized_email_format",
@@ -37,16 +46,76 @@ class Session(Base):
     )
 
 
+class SpecialistCategory(Base):
+    __tablename__ = "specialist_categories"
+    code: Mapped[str] = mapped_column(String(30), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    sort_order: Mapped[int] = mapped_column()
+
+
 class Specialist(Base):
     __tablename__ = "specialists"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), unique=True)
     slug: Mapped[str] = mapped_column(String(100), unique=True)
+    services: Mapped[list[SpecialistService]] = relationship(
+        lazy="selectin", cascade="all, delete-orphan"
+    )
     display_name: Mapped[str] = mapped_column(String(200))
     timezone: Mapped[str] = mapped_column(String(100), server_default="Asia/Omsk")
+    category_code: Mapped[str | None] = mapped_column(ForeignKey("specialist_categories.code"))
+    specialization: Mapped[str] = mapped_column(String(200), server_default="")
+    short_description: Mapped[str] = mapped_column(String(500), server_default="")
+    description: Mapped[str] = mapped_column(String(10000), server_default="")
+    experience_years: Mapped[int | None] = mapped_column()
+    city: Mapped[str] = mapped_column(String(100), server_default="")
+    work_formats: Mapped[str] = mapped_column(String(100), server_default="")
+    workplace: Mapped[str] = mapped_column(String(500), server_default="")
+    service_area: Mapped[str] = mapped_column(String(500), server_default="")
+    publication_status: Mapped[str] = mapped_column(String(20), server_default="draft")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
     __table_args__ = (
+        Index(
+            "published_specialists_category_city",
+            "category_code",
+            "city",
+            postgresql_where=text("publication_status = 'published'"),
+        ),
+        CheckConstraint(
+            "publication_status IN ('draft', 'published')", name="specialist_publication_status"
+        ),
+        CheckConstraint(
+            "experience_years IS NULL OR experience_years BETWEEN 0 AND 80",
+            name="specialist_experience",
+        ),
         CheckConstraint(
             "slug <> '' AND display_name <> '' AND timezone <> ''", name="specialist_nonempty"
+        ),
+    )
+
+
+class SpecialistService(Base):
+    __tablename__ = "specialist_services"
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    specialist_id: Mapped[UUID] = mapped_column(
+        ForeignKey("specialists.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(String(2000), server_default="")
+
+
+class CatalogSchedule(Base):
+    __tablename__ = "catalog_schedules"
+    name: Mapped[str] = mapped_column(String(50), primary_key=True)
+    initial_starts_on: Mapped[date] = mapped_column()
+    generated_through: Mapped[date] = mapped_column()
+    next_extension_on: Mapped[date] = mapped_column()
+    __table_args__ = (
+        CheckConstraint("generated_through >= initial_starts_on", name="catalog_schedule_range"),
+        CheckConstraint(
+            "extract(isodow from next_extension_on) = 3", name="catalog_schedule_wednesday"
         ),
     )
 
@@ -80,6 +149,9 @@ class Booking(Base):
     __tablename__ = "bookings"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     slot_id: Mapped[UUID] = mapped_column(ForeignKey("slots.id", ondelete="RESTRICT"))
+    client_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
     client_name: Mapped[str] = mapped_column(String(200))
     client_email: Mapped[str] = mapped_column(String(320))
     status: Mapped[str] = mapped_column(String(10), server_default="confirmed")

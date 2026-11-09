@@ -47,7 +47,7 @@ export function OwnerLayout() {
       />
     )
   if (session.isPending) return <p role="status">Проверяем вход…</p>
-  if (session.isError)
+  if (session.isError && !session.data)
     return (
       <EmptyState
         title="Не удалось проверить вход"
@@ -56,9 +56,15 @@ export function OwnerLayout() {
         Проверьте соединение. Данные кабинета появятся после проверки сессии.
       </EmptyState>
     )
-  const owner = session.data
+  const owner = session.data!
   return (
     <>
+      {session.isError && (
+        <p role="alert">
+          Не удалось обновить сессию. Введённые данные сохранены на экране; повторите попытку при
+          восстановлении связи.
+        </p>
+      )}
       {session.isFetching && <p role="status">Проверяем вход…</p>}
       <div
         className="space-y-6"
@@ -70,8 +76,10 @@ export function OwnerLayout() {
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 space-y-2">
-            <p className="eyebrow">Кабинет специалиста</p>
-            <h1>{owner.specialist?.display_name ?? 'Ваш кабинет'}</h1>
+            <p className="eyebrow">
+              {owner.role === 'specialist' ? 'Кабинет специалиста' : 'Кабинет клиента'}
+            </p>
+            <h1>{owner.full_name || owner.specialist?.display_name || owner.email}</h1>
             <p className="break-all text-sm text-muted-foreground">{owner.email}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -96,10 +104,19 @@ export function OwnerLayout() {
             Не удалось выйти. Сессия может оставаться активной; повторите выход.
           </p>
         )}
-        <nav aria-label="Кабинет" className="flex gap-2 border-b border-border pb-4">
+        <nav aria-label="Кабинет" className="flex flex-wrap gap-2 border-b border-border pb-4">
           {[
-            ['/dashboard', 'Записи'],
-            ['/dashboard/schedule', 'Расписание'],
+            ['/dashboard', 'Обзор'],
+            ['/dashboard/bookings', owner.role === 'specialist' ? 'Записи' : 'Мои записи'],
+            ...(owner.role === 'specialist'
+              ? [
+                  ['/dashboard/schedule', 'Расписание'],
+                  ['/dashboard/shifts', 'Создать смены'],
+                  ['/dashboard/professional', 'Публичный профиль'],
+                ]
+              : []),
+            ['/dashboard/profile', 'Личные данные'],
+            ['/dashboard/security', 'Безопасность'],
           ].map(([to, label]) => (
             <NavLink
               key={to}
@@ -113,13 +130,7 @@ export function OwnerLayout() {
             </NavLink>
           ))}
         </nav>
-        {owner.specialist ? (
-          <Outlet key={owner.id} context={{ ...owner, checkingSession: session.isFetching }} />
-        ) : (
-          <EmptyState title="Профиль специалиста не настроен">
-            Обратитесь к администратору для настройки расписания.
-          </EmptyState>
-        )}
+        <Outlet key={owner.id} context={{ ...owner, checkingSession: session.isFetching }} />
       </div>
     </>
   )

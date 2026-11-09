@@ -9,6 +9,7 @@ import httpx
 import pytest
 import pytest_asyncio
 import uvicorn
+from client_auth import authenticate_client
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -28,7 +29,11 @@ async def api(database):
             session.add(owner)
             await session.flush()
             specialist = Specialist(
-                user_id=owner.id, slug=str(uuid4()), display_name="Test", timezone="Asia/Omsk"
+                publication_status="published",
+                user_id=owner.id,
+                slug=str(uuid4()),
+                display_name="Test",
+                timezone="Asia/Omsk",
             )
             session.add(specialist)
             await session.flush()
@@ -51,6 +56,7 @@ async def api(database):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
+            await authenticate_client(client)
             yield app, client, new_slot, slug
 
 
@@ -343,8 +349,12 @@ async def test_clock_is_checked_after_waiting_for_lock(api, operation):
 
 @pytest.mark.asyncio
 async def test_twenty_concurrent_tcp_requests_one_booking(api, database):
-    app, _, new_slot, _ = api
+    app, client, new_slot, _ = api
     slot_id = await new_slot()
+    auth_cookie = client.headers.get("Cookie") or "; ".join(
+        f"{k}={v}" for k, v in client.cookies.items()
+    )
+    auth_csrf = client.headers["X-CSRF-Token"]
     engine = create_async_engine(database, pool_size=20, max_overflow=0)
     barrier = asyncio.Barrier(20)
     pids = set()
@@ -378,7 +388,13 @@ async def test_twenty_concurrent_tcp_requests_one_booking(api, database):
             async def send():
                 async with httpx.AsyncClient(trust_env=False, timeout=15) as client:
                     return await client.post(
-                        f"http://127.0.0.1:{port}/api/v1/bookings", json=payload(slot_id)
+                        f"http://127.0.0.1:{port}/api/v1/bookings",
+                        json=payload(slot_id),
+                        headers={
+                            "Cookie": auth_cookie,
+                            "Origin": app.state.settings.public_origin,
+                            "X-CSRF-Token": auth_csrf,
+                        },
                     )
 
             responses = await asyncio.gather(*[send() for _ in range(20)])

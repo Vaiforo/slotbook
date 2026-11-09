@@ -1,49 +1,70 @@
 import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, createBooking, type BookingCreated } from '@/lib/api'
 import { bookingFormSchema, type BookingFormValues } from '@/lib/booking-form'
+import { Link, useLocation } from 'react-router-dom'
+import { currentOwner, sessionKey } from '@/lib/owner-api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 export function BookingForm({
   slotId,
+  date,
   onBooked,
   onUnavailable,
   onPendingChange,
 }: {
   slotId: string
+  date: string
   onBooked: (booking: BookingCreated) => void
   onUnavailable: () => void
   onPendingChange?: (pending: boolean) => void
 }) {
   const queryClient = useQueryClient()
+  const location = useLocation()
+  const session = useQuery({
+    queryKey: sessionKey,
+    queryFn: ({ signal }) => currentOwner(signal),
+    retry: false,
+  })
+  const next = `${location.pathname}?date=${encodeURIComponent(date)}&slot=${encodeURIComponent(slotId)}`
   const submitting = useRef(false)
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
-    defaultValues: { client_name: '', client_email: '' },
+    values: { client_name: session.data?.full_name ?? '', client_email: session.data?.email ?? '' },
   })
   const mutation = useMutation({
     retry: false,
     gcTime: 0,
     onMutate: () => onPendingChange?.(true),
     onSettled: () => onPendingChange?.(false),
-    mutationFn: async (values: BookingFormValues) => {
+    mutationFn: async () => {
       const booking = await createBooking(
-        { ...values, slot_id: slotId },
+        { slot_id: slotId },
         AbortSignal.timeout(15_000),
+        session.data?.csrf_token,
       )
       // Keep the secret in the confirmation component, out of mutation data/query keys.
       onBooked(booking)
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['catalog'] })
+      if (session.data) {
+        void queryClient.invalidateQueries({
+          queryKey: ['owner', session.data.id, 'client-bookings'],
+        })
+      }
       void queryClient.invalidateQueries({
         queryKey: ['specialists'],
         predicate: (query) => query.queryKey[2] === 'slots',
       })
     },
     onError: (error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        queryClient.setQueryData(sessionKey, null)
+      }
       if (error instanceof ApiError && error.status === 409) {
         onUnavailable()
         void queryClient.invalidateQueries({
@@ -58,16 +79,27 @@ export function BookingForm({
     error instanceof ApiError && error.status === 422
       ? 'Сервер не принял данные. Проверьте имя и email и отправьте форму снова.'
       : 'Не удалось получить подтверждение. Запись могла сохраниться. Не отправляйте заявку повторно вслепую: проверьте расписание или свяжитесь со специалистом.'
+  if (session.isPending) return <p role="status">Проверяем вход…</p>
+  if (!session.data)
+    return (
+      <div className="space-y-3">
+        <p>Войдите или зарегистрируйтесь, чтобы записаться.</p>
+        <Link to={`/login?next=${encodeURIComponent(next)}`}>Войти</Link>
+        {' · '}
+        <Link to={`/register?next=${encodeURIComponent(next)}`}>Зарегистрироваться</Link>
+      </div>
+    )
+  if (session.data.role !== 'client') return <p>Для записи нужен аккаунт клиента.</p>
   return (
     <form
       noValidate
       className="space-y-5"
       onSubmit={(event) => {
-        void form.handleSubmit(async (values) => {
+        void form.handleSubmit(async () => {
           if (submitting.current) return
           submitting.current = true
           try {
-            await mutation.mutateAsync(values)
+            await mutation.mutateAsync()
           } catch {
             /* Shown below; never retry automatically. */
           } finally {
@@ -83,6 +115,7 @@ export function BookingForm({
           </label>
           <Input
             id="client-name"
+            readOnly
             autoComplete="name"
             {...form.register('client_name')}
             aria-invalid={!!form.formState.errors.client_name}
@@ -98,6 +131,7 @@ export function BookingForm({
           </label>
           <Input
             id="client-email"
+            readOnly
             type="email"
             autoComplete="email"
             {...form.register('client_email')}
@@ -109,16 +143,17 @@ export function BookingForm({
           </p>
         </div>
         <p className="text-sm text-muted-foreground">
-          После записи сохраните секретную ссылку. Письмо с подтверждением пока не отправляется.
+          Контакты берутся из вашего аккаунта. Запись появится в личном кабинете.
         </p>
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
           {mutation.isPending ? 'Записываем…' : 'Подтвердить запись'}
         </Button>
       </fieldset>
       {error && !(error instanceof ApiError && error.status === 409) && (
-        <p role="alert" className="text-sm text-red-700">
-          {message}
-        </p>
+        <div role="alert" className="space-y-2 text-sm text-red-700">
+          <p>{message}</p>
+          <Link to="/dashboard/bookings">Проверить мои записи</Link>
+        </div>
       )}
     </form>
   )

@@ -26,6 +26,8 @@ class RateLimitMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         limits = {
+            "/api/v1/auth/register": self.settings.register_limit,
+            "/api/v1/auth/change-password": self.settings.login_limit,
             "/api/v1/auth/login": self.settings.login_limit,
             "/api/v1/bookings": self.settings.booking_limit,
         }

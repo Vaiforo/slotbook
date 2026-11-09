@@ -28,7 +28,7 @@ check: api-check version-check ai-eval
 smoke:
 	cd frontend && npm run test:smoke
 
-.PHONY: db-up db-stop migrate seed db-test
+.PHONY: db-up db-stop migrate seed-specialists catalog-scheduler db-test
 
 db-up:
 	docker compose up -d --wait db redis
@@ -39,8 +39,11 @@ db-stop:
 migrate:
 	cd backend && uv run --frozen alembic upgrade head
 
-seed:
-	cd backend && uv run --frozen python -m scripts.seed_demo
+seed-specialists:
+	cd backend && uv run --frozen python -m scripts.seed_specialists
+
+catalog-scheduler:
+	cd backend && uv run --frozen python -m app.catalog.scheduler
 
 # Creates and drops ONLY a new random slotbook_test_* database.
 # Override for a dedicated PostgreSQL 18 server with CREATEDB permission.

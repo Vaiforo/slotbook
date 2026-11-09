@@ -41,6 +41,22 @@ class BookingDetails(BaseModel):
     cancelled_at: AwareDatetime | None
 
 
+class AccountBookingCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    slot_id: UUID
+    # Compatibility for existing forms; identity always comes from the session.
+    client_name: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+        | None
+    ) = None
+    client_email: EmailStr | None = None
+
+    @field_validator("client_name")
+    @classmethod
+    def valid_name(cls, value: str | None) -> str | None:
+        return BookingCreate.no_control_characters(value) if value is not None else None
+
+
 class BookingCreated(BookingDetails):
     manage_token: str = Field(
         description=(

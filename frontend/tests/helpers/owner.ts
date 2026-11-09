@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 export async function login(
   page: Page,
-  email = 'demo@example.invalid',
+  email = 'fixture@example.invalid',
   password = 'browser-owner-password',
 ) {
   await expect(page.getByRole('heading', { name: 'Войти в SlotBook' })).toBeVisible()

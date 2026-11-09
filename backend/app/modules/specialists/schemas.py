@@ -5,12 +5,28 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 
+class PublicService(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    name: str
+    description: str
+
+
 class PublicSpecialist(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     slug: str
     display_name: str
     timezone: str
+    category_code: str | None = None
+    specialization: str = ""
+    short_description: str = ""
+    description: str = ""
+    experience_years: int | None = None
+    city: str = ""
+    work_formats: str = ""
+    workplace: str = ""
+    service_area: str = ""
+    services: list[PublicService] = Field(default_factory=list)
 
 
 class PublicSlot(BaseModel):

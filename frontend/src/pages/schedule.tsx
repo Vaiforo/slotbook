@@ -1,3 +1,4 @@
+import { invalidateAvailability } from '@/lib/availability'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -42,8 +43,7 @@ export function SchedulePage() {
     refetchOnReconnect: false,
   })
   function refresh() {
-    void client.invalidateQueries({ queryKey: ownerKey(owner.id) })
-    void client.invalidateQueries({ queryKey: ['specialists', owner.specialist.slug, 'slots'] })
+    void invalidateAvailability(client, owner.id, owner.specialist.slug)
   }
   const mutation = useMutation({
     mutationKey: ['owner', owner.id, 'change-slot'],

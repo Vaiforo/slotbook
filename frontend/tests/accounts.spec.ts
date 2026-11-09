@@ -1,0 +1,36 @@
+import { test, expect } from '@playwright/test'
+
+for (const role of ['Клиент', 'Специалист']) {
+  test(`Регистрация и настройки: ${role}`, async ({ page }) => {
+    await page.goto('/register')
+    await page.getByRole('radio', { name: new RegExp(`^${role}`) }).check()
+    await page.getByRole('button', { name: 'Продолжить' }).click()
+    const email = `account-${Date.now()}-${role === 'Клиент' ? 'client' : 'specialist'}@example.com`
+    await page.getByLabel('Имя', { exact: true }).fill('Анна Тестовая')
+    await page.getByLabel('Email', { exact: true }).fill(email)
+    await page.getByLabel('Пароль', { exact: true }).fill('browser-account-password')
+    await page.getByLabel('Повторите пароль').fill('browser-account-password')
+    if (role === 'Специалист') await page.getByLabel('Категория').selectOption('medicine')
+    await page.getByRole('button', { name: 'Зарегистрироваться' }).click()
+    await expect(page).toHaveURL('/dashboard')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Анна Тестовая')
+    if (role === 'Клиент')
+      await expect(page.getByRole('link', { name: 'Расписание', exact: true })).toHaveCount(0)
+    await page.getByRole('link', { name: 'Личные данные', exact: true }).click()
+    await page.getByLabel('Имя', { exact: true }).fill('Анна Обновлённая')
+    await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
+    await expect(page.getByRole('status')).toHaveText('Данные сохранены')
+    await page.reload()
+    await expect(page.getByLabel('Имя', { exact: true })).toHaveValue('Анна Обновлённая')
+    await page.getByRole('link', { name: 'Безопасность', exact: true }).click()
+    await page.getByLabel('Текущий пароль', { exact: true }).fill('browser-account-password')
+    await page.getByLabel('Новый пароль', { exact: true }).fill('new-browser-account-password')
+    await page.getByLabel('Повторите новый пароль').fill('new-browser-account-password')
+    await page.getByRole('button', { name: 'Изменить пароль' }).click()
+    await expect(page).toHaveURL(/\/login\?passwordChanged=1/)
+    await page.getByLabel('Email', { exact: true }).fill(email)
+    await page.getByLabel('Пароль', { exact: true }).fill('new-browser-account-password')
+    await page.getByRole('button', { name: 'Войти', exact: true }).click()
+    await expect(page).toHaveURL('/dashboard')
+  })
+}

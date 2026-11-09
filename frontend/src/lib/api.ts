@@ -96,12 +96,17 @@ export function getAvailableSlots(
   return request(`/specialists/${encodeURIComponent(slug)}/slots?${query}`, { signal })
 }
 
-export type BookingCreate = components['schemas']['BookingCreate']
+export type BookingCreate = components['schemas']['AccountBookingCreate']
 export type BookingCreated = components['schemas']['BookingCreated']
 export type BookingDetails = components['schemas']['BookingDetails']
 
-export function createBooking(data: BookingCreate, signal?: AbortSignal): Promise<BookingCreated> {
+export function createBooking(
+  data: BookingCreate,
+  signal?: AbortSignal,
+  csrfToken?: string,
+): Promise<BookingCreated> {
   return request('/bookings', {
+    csrfToken,
     method: 'POST',
     signal,
     headers: { 'Content-Type': 'application/json' },

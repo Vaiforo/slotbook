@@ -2,23 +2,10 @@ from datetime import UTC, timedelta
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, model_validator
 
 from app.modules.bookings.schemas import BookingDetails
-from app.modules.specialists.schemas import PublicSpecialist, SlotFilters
-
-
-class Login(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    email: str = Field(min_length=1, max_length=320)
-    password: str = Field(min_length=1, max_length=1024)
-
-
-class Identity(BaseModel):
-    id: UUID
-    email: str
-    csrf_token: str
-    specialist: PublicSpecialist | None
+from app.modules.specialists.schemas import SlotFilters
 
 
 class SlotCreate(BaseModel):

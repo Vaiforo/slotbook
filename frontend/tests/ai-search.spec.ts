@@ -1,3 +1,4 @@
+import { authenticatePage } from './helpers/client'
 import { expect, test } from '@playwright/test'
 
 test('search uses API slots and selection requires explicit booking confirmation', async ({
@@ -8,11 +9,11 @@ test('search uses API slots and selection requires explicit booking confirmation
   page.on('request', (r) => {
     if (r.method() === 'POST' && r.url().endsWith('/bookings')) bookings++
   })
-  await page.goto('/s/demo')
+  await page.goto('/s/fixture')
   await page.getByRole('button', { name: 'Подобрать по описанию' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Пожелания ко времени').fill('Завтра с 10:00 до 12:00')
-  const response = page.waitForResponse((r) => r.url().endsWith('/specialists/demo/search'))
+  const response = page.waitForResponse((r) => r.url().endsWith('/specialists/fixture/search'))
   await dialog.getByRole('button', { name: 'Найти время', exact: true }).click()
   const data = await (await response).json()
   expect(data.status).toBe('found')
@@ -29,8 +30,7 @@ test('search uses API slots and selection requires explicit booking confirmation
   await expect(dialog).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Данные для записи' })).toBeVisible()
   expect(bookings).toBe(0)
-  await page.getByLabel('Ваше имя').fill('Тест Поиска')
-  await page.getByLabel('Email', { exact: true }).fill('search@example.com')
+
   const created = page.waitForResponse((r) => r.url().endsWith('/bookings') && r.status() === 201)
   await page.getByRole('button', { name: 'Подтвердить запись' }).click()
   const booking = await (await created).json()
@@ -48,7 +48,7 @@ test('search uses API slots and selection requires explicit booking confirmation
 test('ambiguous request can be clarified; provider failure offers the calendar', async ({
   page,
 }) => {
-  await page.goto('/s/demo')
+  await page.goto('/s/fixture')
   await page.getByRole('button', { name: 'Подобрать по описанию' }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('Пожелания ко времени').fill('Завтра после трёх')
@@ -73,7 +73,7 @@ test('ambiguous request can be clarified; provider failure offers the calendar',
 })
 
 test('closing an in-flight search discards the late result', async ({ page }) => {
-  await page.goto('/s/demo')
+  await page.goto('/s/fixture')
   await page.getByRole('button', { name: 'Подобрать по описанию' }).click()
   await page.getByLabel('Пожелания ко времени').fill('Медленный ответ')
   await page.getByRole('button', { name: 'Найти время', exact: true }).click()
@@ -90,4 +90,8 @@ test('closing an in-flight search discards the late result', async ({ page }) =>
   await expect(
     page.getByRole('group', { name: 'Найденное время' }).getByRole('button'),
   ).toHaveCount(0)
+})
+
+test.beforeEach(async ({ page }) => {
+  await authenticatePage(page)
 })

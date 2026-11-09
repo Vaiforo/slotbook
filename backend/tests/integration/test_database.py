@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, func, insert, select
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Booking, Slot, Specialist, User
-from scripts.seed_demo import DEMO_SPECIALIST, seed_demo
+from scripts.test_fixtures import FIXTURE_SPECIALIST, seed_test_fixture
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("SLOTBOOK_TEST_ADMIN_URL"),
@@ -137,19 +137,19 @@ def test_not_null_and_booking_state(connection):
 
 
 def test_seed_idempotency_and_future_dates(database):
-    seed_demo(database)
+    seed_test_fixture(database)
     engine = create_engine(database)
     with engine.connect() as conn:
         first = conn.execute(
             select(Slot.id, Slot.starts_at)
-            .where(Slot.specialist_id == DEMO_SPECIALIST)
+            .where(Slot.specialist_id == FIXTURE_SPECIALIST)
             .order_by(Slot.starts_at)
         ).all()
-    seed_demo(database)
+    seed_test_fixture(database)
     with engine.connect() as conn:
         second = conn.execute(
             select(Slot.id, Slot.starts_at)
-            .where(Slot.specialist_id == DEMO_SPECIALIST)
+            .where(Slot.specialist_id == FIXTURE_SPECIALIST)
             .order_by(Slot.starts_at)
         ).all()
         assert first == second

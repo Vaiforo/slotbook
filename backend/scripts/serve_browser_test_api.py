@@ -22,7 +22,7 @@ from app.core.config import Settings
 from app.main import create_app
 from app.models import Specialist, User
 from app.modules.owner.security import hasher
-from scripts.seed_demo import seed_demo
+from scripts.test_fixtures import seed_test_fixture
 
 
 def create_browser_app():
@@ -79,18 +79,20 @@ def main() -> None:
         config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
         command.upgrade(config, "head")
         # Credentials exist only inside this disposable browser-test database.
-        seed_demo(url, password="browser-owner-password")
+        seed_test_fixture(url, password="browser-owner-password")
         fixture_engine = create_engine(url)
         try:
             with Session(fixture_engine) as session, session.begin():
                 other = User(
                     normalized_email="other@example.invalid",
+                    role="specialist",
                     password_hash=hasher.hash("browser-other-password"),
                 )
                 session.add(other)
                 session.flush()
                 session.add(
                     Specialist(
+                        publication_status="published",
                         user_id=other.id,
                         slug="other",
                         display_name="Другой специалист",
@@ -116,6 +118,8 @@ def main() -> None:
                 "--port",
                 "8000",
                 "--no-access-log",
+                "--loop",
+                "asyncio:SelectorEventLoop",
             ]
         )
         code = child.wait()

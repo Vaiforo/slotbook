@@ -30,18 +30,19 @@ if [ -n "${CODEX_PROXY_CERT:-}" ]; then
   docker build --secret id=proxy_ca,src=/etc/ssl/certs/ca-certificates.crt -t "slotbook-api:$IMAGE_TAG" backend
   docker build --secret "id=proxy_ca,src=$CODEX_PROXY_CERT" -t "slotbook-web:$IMAGE_TAG" frontend
 else
-  "${compose[@]}" build
+  # All Python services share one image; build that tag only once.
+  "${compose[@]}" build api nginx
 fi
 "${compose[@]}" up -d --wait --wait-timeout 120
 base="http://127.0.0.1:$HTTP_PORT"
-"${compose[@]}" exec -T api python -m scripts.seed_demo
-"${compose[@]}" exec -T api python -m scripts.seed_demo
-curl -fsS -H 'Content-Type: application/json' -d '{"text":"завтра"}' "$base/api/v1/specialists/demo/search" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["status"]=="unavailable" and r["items"]==[]'
+"${compose[@]}" exec -T api python -m scripts.seed_specialists
+"${compose[@]}" exec -T api python -m scripts.seed_specialists
+curl -fsS -H 'Content-Type: application/json' -d '{"text":"завтра"}' "$base/api/v1/specialists/anna-belova/search" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r["status"]=="unavailable" and r["items"]==[]'
 "${compose[@]}" stop redis
 python3 scripts/check-redis-outage.py "$base"
 "${compose[@]}" up -d --wait redis
 "${compose[@]}" stop worker rabbitmq
-python3 scripts/demo-api.py --base-url "$base" --book-and-cancel
+python3 scripts/booking-journey.py --base-url "$base" --book-and-cancel
 test "$("${compose[@]}" exec -T db psql -U slotbook -Atc 'SELECT count(*) FROM outbox_events')" = 2
 "${compose[@]}" up -d --wait rabbitmq
 for attempt in $(seq 1 90); do
@@ -65,13 +66,22 @@ test "$delivered" = 2
 "${compose[@]}" exec -T mail-provider python -c 'import sqlite3; db=sqlite3.connect("/data/receipts.sqlite"); assert db.execute("SELECT count(*) FROM receipts").fetchone()[0] == 2'
 echo 'Broker outage, durable queue restart and notification delivery passed.'
 # Restore a synthetic dump into a separate database; never replace the source.
+# Keep the source snapshot stable even if CI runs on an extension Wednesday.
+"${compose[@]}" stop catalog-scheduler
+source_slots=$("${compose[@]}" exec -T db psql -U slotbook -Atc 'SELECT count(*) FROM slots')
+test "$source_slots" -gt 0
 "${compose[@]}" exec -T db createdb -U slotbook slotbook_restore_check
 "${compose[@]}" exec -T db pg_dump -U slotbook -Fc slotbook | \
   "${compose[@]}" exec -T db pg_restore -U slotbook --exit-on-error -d slotbook_restore_check
 test "$("${compose[@]}" exec -T db psql -U slotbook -d slotbook_restore_check -Atc "SELECT count(*) FROM bookings WHERE status='cancelled'")" = 1
-test "$("${compose[@]}" exec -T db psql -U slotbook -d slotbook_restore_check -Atc 'SELECT count(*) FROM slots')" = 4
+restored_slots=$("${compose[@]}" exec -T db psql -U slotbook -d slotbook_restore_check -Atc 'SELECT count(*) FROM slots')
+if [ "$restored_slots" != "$source_slots" ]; then
+  echo "Restored slot count mismatch: expected $source_slots, got $restored_slots" >&2
+  exit 1
+fi
 "${compose[@]}" exec -T db dropdb -U slotbook slotbook_restore_check
 echo 'Synthetic backup restoration passed.'
+"${compose[@]}" up -d catalog-scheduler
 for path in / /dashboard /manage/00000000-0000-0000-0000-000000000000; do
   curl -fsS "$base$path" | grep -q '<div id="root">'
 done
